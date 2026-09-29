@@ -9,6 +9,32 @@
     <p>Role: <strong>{{ user.get_role_display }}</strong></p>
     {% if user.department %}<p>Department: {{ user.department }}</p>{% endif %}
 
+    <section class="kpi-dashboard">
+        <h3>Dashboard Overview</h3>
+        <div class="kpi-cards" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div class="kpi-card" style="border: 1px solid #ccc; padding: 1rem; min-width: 150px;">
+                <h4>Total Facilities</h4>
+                <p class="kpi-value">{{ total_facilities }}</p>
+            </div>
+            <div class="kpi-card" style="border: 1px solid #ccc; padding: 1rem; min-width: 150px;">
+                <h4>Total Reservations</h4>
+                <p class="kpi-value">{{ total_reservations }}</p>
+            </div>
+            <div class="kpi-card" style="border: 1px solid #ccc; padding: 1rem; min-width: 150px;">
+                <h4>Pending Reservations</h4>
+                <p class="kpi-value">{{ pending_reservations }}</p>
+            </div>
+            <div class="kpi-card" style="border: 1px solid #ccc; padding: 1rem; min-width: 150px;">
+                <h4>Approved Reservations</h4>
+                <p class="kpi-value">{{ approved_reservations }}</p>
+            </div>
+            <div class="kpi-card" style="border: 1px solid #ccc; padding: 1rem; min-width: 150px;">
+                <h4>Today's Reservations</h4>
+                <p class="kpi-value">{{ todays_reservations }}</p>
+            </div>
+        </div>
+    </section>
+
     <nav>
         <ul>
             <li><a href="{% url 'facilities:facility_list' %}">Facilities</a></li>
@@ -27,3 +53,4 @@
     </form>
 </body>
 </html>
+
