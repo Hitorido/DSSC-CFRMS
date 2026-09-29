@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     # CFRMS Apps
     'accounts',
     'facilities',
+    'reservations',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
