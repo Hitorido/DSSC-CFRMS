@@ -108,7 +108,12 @@
       {% endif %}
     </form>
 
-    <p class="text-center text-muted mt-4 mb-0" style="font-size:.78rem;">
+    <p class="text-center mt-3 mb-0" style="font-size:.875rem;">
+      No account yet?
+      <a href="{% url 'accounts:register' %}" class="fw-semibold">Create one here</a>
+    </p>
+
+    <p class="text-center text-muted mt-3 mb-0" style="font-size:.78rem;">
       &copy; {% now "Y" %} Davao del Sur State College
     </p>
 
