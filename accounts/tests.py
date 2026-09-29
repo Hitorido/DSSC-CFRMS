@@ -265,3 +265,136 @@ class AuthAndRBACTestCase(TestCase):
         self.client.login(username='django_staff_only', password='testpassword123')
         response = self.client.get(reverse('reservations:pending_reservations'))
         self.assertEqual(response.status_code, 403)
+
+
+class DashboardKPITestCase(TestCase):
+    """
+    Unit tests for basic dashboard KPI counts (Member 5).
+    Verifies total facilities, total reservations, pending, approved, today's count,
+    role-based scoping for requesters vs staff/admin, and anonymous redirection.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+        self.requester1 = User.objects.create_user(
+            username='kpi_requester1',
+            password='password123',
+            role=User.Role.REQUESTER,
+        )
+        self.requester2 = User.objects.create_user(
+            username='kpi_requester2',
+            password='password123',
+            role=User.Role.REQUESTER,
+        )
+        self.staff_user = User.objects.create_user(
+            username='kpi_staff',
+            password='password123',
+            role=User.Role.STAFF,
+        )
+        self.admin_user = User.objects.create_user(
+            username='kpi_admin',
+            password='password123',
+            role=User.Role.ADMIN,
+        )
+
+        facility_type = FacilityType.objects.create(name='KPI Lab')
+        self.facility1 = Facility.objects.create(
+            facility_type=facility_type,
+            name='KPI Room 1',
+            location='Floor 1',
+            capacity=30,
+            status=Facility.Status.AVAILABLE,
+        )
+        self.facility2 = Facility.objects.create(
+            facility_type=facility_type,
+            name='KPI Room 2',
+            location='Floor 2',
+            capacity=50,
+            status=Facility.Status.AVAILABLE,
+        )
+
+        self.today = timezone.localdate()
+        self.tomorrow = self.today + datetime.timedelta(days=1)
+
+        # Requester 1 reservations:
+        # 1. PENDING today (10:00 - 11:00)
+        self.r1_pending_today = Reservation.objects.create(
+            requested_by=self.requester1,
+            facility=self.facility1,
+            purpose='Req1 Today Pending',
+            reservation_date=self.today,
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(11, 0),
+            status=Reservation.Status.PENDING,
+        )
+        # 2. APPROVED tomorrow (09:00 - 10:00)
+        self.r1_approved_tomorrow = Reservation.objects.create(
+            requested_by=self.requester1,
+            facility=self.facility1,
+            purpose='Req1 Tomorrow Approved',
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0),
+            status=Reservation.Status.APPROVED,
+        )
+
+        # Requester 2 reservations:
+        # 1. APPROVED today (14:00 - 15:00)
+        self.r2_approved_today = Reservation.objects.create(
+            requested_by=self.requester2,
+            facility=self.facility2,
+            purpose='Req2 Today Approved',
+            reservation_date=self.today,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(15, 0),
+            status=Reservation.Status.APPROVED,
+        )
+
+    def test_anonymous_user_redirected(self):
+        """Anonymous user must be redirected to login page when accessing home."""
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_requester_kpi_counts_own_records_only(self):
+        """Requester sees total facilities, but reservation KPIs count only their own records."""
+        self.client.login(username='kpi_requester1', password='password123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        # Context assertions
+        self.assertEqual(response.context['total_facilities'], 2)
+        self.assertEqual(response.context['total_reservations'], 2)
+        self.assertEqual(response.context['pending_reservations'], 1)
+        self.assertEqual(response.context['approved_reservations'], 1)
+        self.assertEqual(response.context['todays_reservations'], 1)
+
+        # Template HTML rendering assertion
+        self.assertContains(response, 'Total Facilities')
+        self.assertContains(response, 'Total Reservations')
+
+    def test_staff_kpi_counts_system_wide(self):
+        """Staff sees system-wide reservation KPIs across all requesters."""
+        self.client.login(username='kpi_staff', password='password123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.context['total_facilities'], 2)
+        self.assertEqual(response.context['total_reservations'], 3)
+        self.assertEqual(response.context['pending_reservations'], 1)
+        self.assertEqual(response.context['approved_reservations'], 2)
+        self.assertEqual(response.context['todays_reservations'], 2)
+
+    def test_admin_kpi_counts_system_wide(self):
+        """Admin sees system-wide reservation KPIs across all requesters."""
+        self.client.login(username='kpi_admin', password='password123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.context['total_facilities'], 2)
+        self.assertEqual(response.context['total_reservations'], 3)
+        self.assertEqual(response.context['pending_reservations'], 1)
+        self.assertEqual(response.context['approved_reservations'], 2)
+        self.assertEqual(response.context['todays_reservations'], 2)
+
