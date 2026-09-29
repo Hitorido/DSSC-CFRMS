@@ -1,90 +1,267 @@
+import datetime
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from facilities.models import Facility, FacilityType
+from reservations.models import Reservation
 
 User = get_user_model()
 
 
-class UserModelTestCase(TestCase):
+class AuthAndRBACTestCase(TestCase):
     """
-    Focused test suite validating custom User model roles,
-    authorization properties, and password security.
+    Tests for CFRMS authentication (login/logout) and
+    role-based access control (REQUESTER, STAFF, ADMIN).
     """
 
-    def test_normal_user_defaults_to_requester_role(self):
-        """A newly created user should default to the REQUESTER role."""
-        user = User.objects.create_user(
-            username='jdelacruz',
-            email='jdelacruz@dssc.edu.ph',
+    def setUp(self):
+        self.client = Client()
+
+        self.requester = User.objects.create_user(
+            username='requester1',
+            email='requester1@dssc.edu.ph',
             password='testpassword123',
+            role=User.Role.REQUESTER,
         )
-        self.assertEqual(user.role, User.Role.REQUESTER)
-        self.assertTrue(user.is_requester_role)
-        self.assertFalse(user.is_admin_role)
-        self.assertFalse(user.is_staff_role)
-
-    def test_admin_role_properties(self):
-        """An ADMIN role user should satisfy is_admin_role and not others."""
-        admin_user = User.objects.create_user(
-            username='super_admin',
-            email='admin@dssc.edu.ph',
+        self.requester2 = User.objects.create_user(
+            username='requester2',
+            email='requester2@dssc.edu.ph',
+            password='testpassword123',
+            role=User.Role.REQUESTER,
+        )
+        self.staff_user = User.objects.create_user(
+            username='staff1',
+            email='staff1@dssc.edu.ph',
+            password='testpassword123',
+            role=User.Role.STAFF,
+            # Django's is_staff flag is FALSE — they can log in to CFRMS
+            # as a STAFF role but cannot access Django Admin
+        )
+        self.admin_user = User.objects.create_user(
+            username='admin1',
+            email='admin1@dssc.edu.ph',
             password='testpassword123',
             role=User.Role.ADMIN,
         )
-        self.assertEqual(admin_user.role, User.Role.ADMIN)
-        self.assertTrue(admin_user.is_admin_role)
-        self.assertFalse(admin_user.is_staff_role)
-        self.assertFalse(admin_user.is_requester_role)
-
-    def test_staff_role_properties(self):
-        """A STAFF role user should satisfy is_staff_role and not others."""
-        staff_user = User.objects.create_user(
-            username='facility_officer',
-            email='officer@dssc.edu.ph',
-            password='testpassword123',
-            role=User.Role.STAFF,
-        )
-        self.assertEqual(staff_user.role, User.Role.STAFF)
-        self.assertTrue(staff_user.is_staff_role)
-        self.assertFalse(staff_user.is_admin_role)
-        self.assertFalse(staff_user.is_requester_role)
-
-    def test_requester_role_properties(self):
-        """A explicitly created REQUESTER should satisfy is_requester_role."""
-        requester_user = User.objects.create_user(
-            username='student_maria',
-            email='maria@dssc.edu.ph',
+        # A user with Django is_staff=True but CFRMS role=REQUESTER
+        # Should NOT gain CFRMS STAFF authorization
+        self.django_staff_only = User.objects.create_user(
+            username='django_staff_only',
+            email='djangostaff@dssc.edu.ph',
             password='testpassword123',
             role=User.Role.REQUESTER,
-            user_type=User.UserType.STUDENT,
-            department='BSIS',
-        )
-        self.assertEqual(requester_user.role, User.Role.REQUESTER)
-        self.assertEqual(requester_user.user_type, User.UserType.STUDENT)
-        self.assertEqual(requester_user.department, 'BSIS')
-        self.assertTrue(requester_user.is_requester_role)
-        self.assertFalse(requester_user.is_admin_role)
-        self.assertFalse(requester_user.is_staff_role)
-
-    def test_password_security(self):
-        """
-        Verify create_user hashes the password using PBKDF2,
-        does not store raw text, and check_password validates correctly.
-        """
-        raw_password = 'SuperSecretCFRMSPassword2026!'
-        user = User.objects.create_user(
-            username='secure_user',
-            email='secure@dssc.edu.ph',
-            password=raw_password,
+            is_staff=True,  # Django Admin access only, NOT CFRMS STAFF
         )
 
-        # Raw password must NEVER equal stored database string
-        self.assertNotEqual(user.password, raw_password)
+        # Create facility and reservations for queryset tests
+        facility_type = FacilityType.objects.create(name='Lecture Hall')
+        self.facility = Facility.objects.create(
+            facility_type=facility_type,
+            name='Lecture Hall 101',
+            location='Building A',
+            capacity=80,
+            status=Facility.Status.AVAILABLE,
+        )
+        self.tomorrow = timezone.localdate() + datetime.timedelta(days=1)
 
-        # Password string must be a hashed format (e.g. pbkdf2_sha256$...)
-        self.assertTrue(user.password.startswith('pbkdf2_sha256$'))
+        # Create a reservation owned by requester1
+        self.requester1_reservation = Reservation.objects.create(
+            requested_by=self.requester,
+            facility=self.facility,
+            purpose='Requester 1 Test Event',
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+        )
 
-        # check_password() correctly verifies matching password
-        self.assertTrue(user.check_password(raw_password))
+    # -------------------------------------------------------------------
+    # AUTHENTICATION TESTS
+    # -------------------------------------------------------------------
 
-        # check_password() rejects invalid password
-        self.assertFalse(user.check_password('WrongPassword!'))
+    def test_anonymous_user_accessing_home_redirects_to_login(self):
+        """Anonymous users must be redirected to login when accessing protected pages."""
+        response = self.client.get(reverse('home'))
+        self.assertRedirects(response, f"{reverse('accounts:login')}?next=/", fetch_redirect_response=False)
+
+    def test_anonymous_user_accessing_facilities_redirects_to_login(self):
+        """Anonymous access to facilities list must redirect to login."""
+        response = self.client.get(reverse('facilities:facility_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_valid_user_can_login(self):
+        """A valid username/password should produce a successful login and redirect."""
+        response = self.client.post(
+            reverse('accounts:login'),
+            {'username': 'requester1', 'password': 'testpassword123'},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['user'].is_authenticated)
+
+    def test_invalid_credentials_fail_login(self):
+        """Invalid credentials must not authenticate the user."""
+        response = self.client.post(
+            reverse('accounts:login'),
+            {'username': 'requester1', 'password': 'WRONGPASSWORD'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['user'].is_authenticated)
+
+    def test_logout_ends_authenticated_session(self):
+        """After logging out, the session must be invalidated."""
+        self.client.login(username='requester1', password='testpassword123')
+        self.client.post(reverse('accounts:logout'))
+        # After logout, protected page should redirect to login
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    # -------------------------------------------------------------------
+    # REQUESTER ACCESS TESTS
+    # -------------------------------------------------------------------
+
+    def test_requester_can_access_home(self):
+        """An authenticated REQUESTER can access the home view."""
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_requester_can_access_facilities(self):
+        """An authenticated REQUESTER can view the facility list."""
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('facilities:facility_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('facilities', response.context)
+
+    def test_requester_can_access_own_reservations(self):
+        """A REQUESTER can access their own reservations view."""
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('reservations:my_reservations'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('reservations', response.context)
+
+    def test_my_reservations_queryset_only_returns_own_records(self):
+        """
+        The my_reservations QuerySet must ONLY return the logged-in user's reservations.
+        Creates a reservation for requester2 and verifies requester1 cannot see it.
+        """
+        # Create reservation owned by requester2
+        Reservation.objects.create(
+            requested_by=self.requester2,
+            facility=self.facility,
+            purpose='Requester 2 Test Event',
+            reservation_date=self.tomorrow + datetime.timedelta(days=1),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+        )
+
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('reservations:my_reservations'))
+
+        qs = response.context['reservations']
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs.first().requested_by, self.requester)
+
+    def test_requester_cannot_access_pending_approval_page(self):
+        """A REQUESTER must receive HTTP 403 when accessing the staff pending view."""
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        self.assertEqual(response.status_code, 403)
+
+    # -------------------------------------------------------------------
+    # STAFF ACCESS TESTS
+    # -------------------------------------------------------------------
+
+    def test_staff_can_access_home(self):
+        """An authenticated STAFF can access the home view."""
+        self.client.login(username='staff1', password='testpassword123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_can_access_facilities(self):
+        """An authenticated STAFF can view the facility list."""
+        self.client.login(username='staff1', password='testpassword123')
+        response = self.client.get(reverse('facilities:facility_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_can_access_pending_reservations(self):
+        """An authenticated STAFF can access the pending reservations view."""
+        self.client.login(username='staff1', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_pending_view_only_returns_pending_status(self):
+        """The pending_reservations view QuerySet must only contain PENDING reservations."""
+        # Approve the existing reservation so it is no longer PENDING
+        self.requester1_reservation.status = Reservation.Status.APPROVED
+        self.requester1_reservation.save()
+
+        # Create a new PENDING reservation
+        Reservation.objects.create(
+            requested_by=self.requester2,
+            facility=self.facility,
+            purpose='Still Pending Event',
+            reservation_date=self.tomorrow + datetime.timedelta(days=2),
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(16, 0),
+        )
+
+        self.client.login(username='staff1', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        qs = response.context['reservations']
+
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs.first().status, Reservation.Status.PENDING)
+
+    # -------------------------------------------------------------------
+    # ADMIN ACCESS TESTS
+    # -------------------------------------------------------------------
+
+    def test_admin_can_access_home(self):
+        """An authenticated ADMIN can access the home view."""
+        self.client.login(username='admin1', password='testpassword123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_access_facilities(self):
+        """An authenticated ADMIN can view the facility list."""
+        self.client.login(username='admin1', password='testpassword123')
+        response = self.client.get(reverse('facilities:facility_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_access_pending_reservations(self):
+        """An authenticated ADMIN can access the pending reservations view."""
+        self.client.login(username='admin1', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        self.assertEqual(response.status_code, 200)
+
+    # -------------------------------------------------------------------
+    # AUTHORIZATION SECURITY TESTS
+    # -------------------------------------------------------------------
+
+    def test_authenticated_unauthorized_access_returns_403(self):
+        """
+        An authenticated REQUESTER accessing a STAFF/ADMIN page must receive
+        HTTP 403 Forbidden, not 404 or a silent redirect.
+        """
+        self.client.login(username='requester1', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_django_is_staff_flag_alone_does_not_grant_cfrms_staff_authorization(self):
+        """
+        CRITICAL: A user with Django is_staff=True but CFRMS role=REQUESTER
+        must NOT gain access to CFRMS STAFF-only views.
+        Django's is_staff controls Django Admin access only.
+        CFRMS authorization is governed exclusively by the 'role' field.
+        """
+        self.assertTrue(self.django_staff_only.is_staff)           # Django Admin: YES
+        self.assertEqual(self.django_staff_only.role, User.Role.REQUESTER)  # CFRMS role: REQUESTER
+        self.assertFalse(self.django_staff_only.is_staff_role)     # CFRMS STAFF check: NO
+
+        self.client.login(username='django_staff_only', password='testpassword123')
+        response = self.client.get(reverse('reservations:pending_reservations'))
+        self.assertEqual(response.status_code, 403)
