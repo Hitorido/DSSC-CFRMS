@@ -3,6 +3,8 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
+
+{# ── Page Header ────────────────────────────────────────────────────────── #}
 <div class="cfrms-page-header">
   <h1><i class="bi bi-house-door me-2"></i>Dashboard</h1>
   <nav aria-label="breadcrumb">
@@ -12,160 +14,392 @@
   </nav>
 </div>
 
-{# ── Welcome banner ──────────────────────────────────────────────────────── #}
+{# ── Welcome Banner ─────────────────────────────────────────────────────── #}
 <div class="cfrms-card mb-4">
   <div class="card-header-bar d-flex align-items-center gap-2">
     <i class="bi bi-person-circle"></i>
     Welcome, {{ user.get_full_name|default:user.username }}
   </div>
+
   <div class="p-4">
     <div class="row g-3 align-items-center">
+
       <div class="col-auto">
-        <div class="rounded-circle d-flex align-items-center justify-content-center"
-             style="width:64px;height:64px;background:var(--cfrms-primary);">
+        <div
+          class="rounded-circle d-flex align-items-center justify-content-center"
+          style="width:64px;height:64px;background:var(--cfrms-primary);"
+        >
           <i class="bi bi-person-fill text-white fs-2"></i>
         </div>
       </div>
+
       <div class="col">
-        <h5 class="mb-0 fw-bold">{{ user.get_full_name|default:user.username }}</h5>
+        <h5 class="mb-0 fw-bold">
+          {{ user.get_full_name|default:user.username }}
+        </h5>
+
         <div class="d-flex flex-wrap gap-2 mt-1">
-          <span class="badge rounded-pill"
-                style="background:var(--cfrms-primary);">
+
+          <span
+            class="badge rounded-pill"
+            style="background:var(--cfrms-primary);"
+          >
             {{ user.get_role_display }}
           </span>
+
           {% if user.user_type %}
-            <span class="badge rounded-pill bg-secondary">{{ user.get_user_type_display }}</span>
-          {% endif %}
-          {% if user.department %}
-            <span class="badge rounded-pill bg-light text-dark border">
-              <i class="bi bi-building me-1"></i>{{ user.department }}
+            <span class="badge rounded-pill bg-secondary">
+              {{ user.get_user_type_display }}
             </span>
           {% endif %}
+
+          {% if user.department %}
+            <span class="badge rounded-pill bg-light text-dark border">
+              <i class="bi bi-building me-1"></i>
+              {{ user.department }}
+            </span>
+          {% endif %}
+
         </div>
       </div>
+
     </div>
   </div>
 </div>
 
-{# ── Quick-action cards — role-specific ──────────────────────────────────── #}
-<h6 class="text-uppercase text-muted fw-semibold mb-3"
-    style="font-size:.75rem;letter-spacing:.07em;">
+
+{# ── Dashboard KPIs ─────────────────────────────────────────────────────── #}
+<h6
+  class="text-uppercase text-muted fw-semibold mb-3"
+  style="font-size:.75rem;letter-spacing:.07em;"
+>
+  Dashboard Overview
+</h6>
+
+<div class="row g-3 mb-4">
+
+  {# Total Facilities #}
+  <div class="col-12 col-sm-6 col-lg">
+    <div class="stat-card h-100">
+      <div class="stat-icon" style="background:#e8edf7;">
+        <i
+          class="bi bi-building"
+          style="color:var(--cfrms-primary);"
+        ></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Total Facilities</div>
+        <div class="stat-value">
+          {{ total_facilities }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {# Total Reservations #}
+  <div class="col-12 col-sm-6 col-lg">
+    <div class="stat-card h-100">
+      <div class="stat-icon" style="background:#e9f2ff;">
+        <i
+          class="bi bi-calendar2-check"
+          style="color:#2980b9;"
+        ></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Total Reservations</div>
+        <div class="stat-value">
+          {{ total_reservations }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {# Pending Reservations #}
+  <div class="col-12 col-sm-6 col-lg">
+    <div class="stat-card h-100">
+      <div class="stat-icon" style="background:#fff3e0;">
+        <i
+          class="bi bi-hourglass-split"
+          style="color:#f39c12;"
+        ></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Pending</div>
+        <div class="stat-value">
+          {{ pending_reservations }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {# Approved Reservations #}
+  <div class="col-12 col-sm-6 col-lg">
+    <div class="stat-card h-100">
+      <div class="stat-icon" style="background:#e6f4ea;">
+        <i
+          class="bi bi-check-circle"
+          style="color:#27ae60;"
+        ></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Approved</div>
+        <div class="stat-value">
+          {{ approved_reservations }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {# Today's Reservations #}
+  <div class="col-12 col-sm-6 col-lg">
+    <div class="stat-card h-100">
+      <div class="stat-icon" style="background:#f3e8ff;">
+        <i
+          class="bi bi-calendar-event"
+          style="color:#8e44ad;"
+        ></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Today</div>
+        <div class="stat-value">
+          {{ todays_reservations }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+{# ── Quick Actions ──────────────────────────────────────────────────────── #}
+<h6
+  class="text-uppercase text-muted fw-semibold mb-3"
+  style="font-size:.75rem;letter-spacing:.07em;"
+>
   Quick Actions
 </h6>
 
 <div class="row g-3 mb-4">
 
-  {# All roles: Facilities #}
+  {# All Roles — Facilities #}
   <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'facilities:facility_list' %}" class="text-decoration-none">
+    <a
+      href="{% url 'facilities:facility_list' %}"
+      class="text-decoration-none"
+    >
       <div class="stat-card h-100">
+
         <div class="stat-icon" style="background:#e8edf7;">
-          <i class="bi bi-building" style="color:var(--cfrms-primary);"></i>
+          <i
+            class="bi bi-building"
+            style="color:var(--cfrms-primary);"
+          ></i>
         </div>
+
         <div>
           <div class="stat-label">Facilities</div>
-          <div class="stat-value" style="font-size:1rem;font-weight:600;color:var(--cfrms-primary);">
+          <div
+            class="stat-value"
+            style="font-size:1rem;font-weight:600;color:var(--cfrms-primary);"
+          >
             View Campus Facilities
           </div>
         </div>
+
         <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
       </div>
     </a>
   </div>
+
 
   {% if user.is_requester_role %}
-  {# Requester: create reservation #}
-  <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'reservations:create_reservation' %}" class="text-decoration-none">
-      <div class="stat-card h-100">
-        <div class="stat-icon" style="background:#e6f4ea;">
-          <i class="bi bi-plus-circle" style="color:#27ae60;"></i>
-        </div>
-        <div>
-          <div class="stat-label">Reservations</div>
-          <div class="stat-value" style="font-size:1rem;font-weight:600;color:#27ae60;">
-            New Reservation
-          </div>
-        </div>
-        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-      </div>
-    </a>
-  </div>
 
-  {# Requester: my reservations #}
-  <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'reservations:my_reservations' %}" class="text-decoration-none">
-      <div class="stat-card h-100">
-        <div class="stat-icon" style="background:#fff3e0;">
-          <i class="bi bi-calendar2-check" style="color:#f39c12;"></i>
-        </div>
-        <div>
-          <div class="stat-label">My Activity</div>
-          <div class="stat-value" style="font-size:1rem;font-weight:600;color:#f39c12;">
-            My Reservations
+    {# Requester — Create Reservation #}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a
+        href="{% url 'reservations:create_reservation' %}"
+        class="text-decoration-none"
+      >
+        <div class="stat-card h-100">
+
+          <div class="stat-icon" style="background:#e6f4ea;">
+            <i
+              class="bi bi-plus-circle"
+              style="color:#27ae60;"
+            ></i>
           </div>
+
+          <div>
+            <div class="stat-label">Reservations</div>
+            <div
+              class="stat-value"
+              style="font-size:1rem;font-weight:600;color:#27ae60;"
+            >
+              New Reservation
+            </div>
+          </div>
+
+          <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
         </div>
-        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-      </div>
-    </a>
-  </div>
+      </a>
+    </div>
+
+
+    {# Requester — My Reservations #}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a
+        href="{% url 'reservations:my_reservations' %}"
+        class="text-decoration-none"
+      >
+        <div class="stat-card h-100">
+
+          <div class="stat-icon" style="background:#fff3e0;">
+            <i
+              class="bi bi-calendar2-check"
+              style="color:#f39c12;"
+            ></i>
+          </div>
+
+          <div>
+            <div class="stat-label">My Activity</div>
+            <div
+              class="stat-value"
+              style="font-size:1rem;font-weight:600;color:#f39c12;"
+            >
+              My Reservations
+            </div>
+          </div>
+
+          <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
+        </div>
+      </a>
+    </div>
+
   {% endif %}
+
 
   {% if user.is_staff_role or user.is_admin_role %}
-  {# Staff/Admin: pending queue #}
-  <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'reservations:pending_reservations' %}" class="text-decoration-none">
-      <div class="stat-card h-100">
-        <div class="stat-icon" style="background:#fff3e0;">
-          <i class="bi bi-hourglass-split" style="color:#f39c12;"></i>
-        </div>
-        <div>
-          <div class="stat-label">Review Queue</div>
-          <div class="stat-value" style="font-size:1rem;font-weight:600;color:#f39c12;">
-            Pending Reservations
+
+    {# Staff/Admin — Pending Queue #}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a
+        href="{% url 'reservations:pending_reservations' %}"
+        class="text-decoration-none"
+      >
+        <div class="stat-card h-100">
+
+          <div class="stat-icon" style="background:#fff3e0;">
+            <i
+              class="bi bi-hourglass-split"
+              style="color:#f39c12;"
+            ></i>
           </div>
+
+          <div>
+            <div class="stat-label">Review Queue</div>
+            <div
+              class="stat-value"
+              style="font-size:1rem;font-weight:600;color:#f39c12;"
+            >
+              Pending Reservations
+            </div>
+          </div>
+
+          <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
         </div>
-        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-      </div>
-    </a>
-  </div>
+      </a>
+    </div>
+
   {% endif %}
 
+
   {% if user.is_admin_role %}
-  {# Admin: Django admin panel #}
-  <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'admin:index' %}" target="_blank" rel="noopener" class="text-decoration-none">
-      <div class="stat-card h-100">
-        <div class="stat-icon" style="background:#f3e8ff;">
-          <i class="bi bi-gear" style="color:#8e44ad;"></i>
-        </div>
-        <div>
-          <div class="stat-label">Administration</div>
-          <div class="stat-value" style="font-size:1rem;font-weight:600;color:#8e44ad;">
-            Admin Panel
+
+    {# Admin — Django Admin #}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a
+        href="{% url 'admin:index' %}"
+        target="_blank"
+        rel="noopener"
+        class="text-decoration-none"
+      >
+        <div class="stat-card h-100">
+
+          <div class="stat-icon" style="background:#f3e8ff;">
+            <i
+              class="bi bi-gear"
+              style="color:#8e44ad;"
+            ></i>
           </div>
+
+          <div>
+            <div class="stat-label">Administration</div>
+            <div
+              class="stat-value"
+              style="font-size:1rem;font-weight:600;color:#8e44ad;"
+            >
+              Admin Panel
+            </div>
+          </div>
+
+          <i
+            class="bi bi-box-arrow-up-right ms-auto text-muted"
+            style="font-size:.8rem;"
+          ></i>
+
         </div>
-        <i class="bi bi-box-arrow-up-right ms-auto text-muted" style="font-size:.8rem;"></i>
-      </div>
-    </a>
-  </div>
+      </a>
+    </div>
+
   {% endif %}
 
 </div>
 
-{# ── System info strip ───────────────────────────────────────────────────── #}
+
+{# ── System Information ─────────────────────────────────────────────────── #}
 <div class="cfrms-card">
-  <div class="p-3 d-flex flex-wrap align-items-center gap-3 text-muted" style="font-size:.82rem;">
-    <span><i class="bi bi-info-circle me-1"></i>
-      <strong>CFRMS</strong> — Campus Facility Reservation &amp; Management System
+
+  <div
+    class="p-3 d-flex flex-wrap align-items-center gap-3 text-muted"
+    style="font-size:.82rem;"
+  >
+
+    <span>
+      <i class="bi bi-info-circle me-1"></i>
+      <strong>CFRMS</strong> —
+      Campus Facility Reservation &amp; Management System
     </span>
+
     <span class="vr d-none d-sm-block"></span>
-    <span><i class="bi bi-building me-1"></i>Davao del Sur State College</span>
-    <span class="vr d-none d-sm-block"></span>
-    <span><i class="bi bi-shield-check me-1"></i>
-      Session secured &middot; Role: <strong>{{ user.get_role_display }}</strong>
+
+    <span>
+      <i class="bi bi-building me-1"></i>
+      Davao del Sur State College
     </span>
+
+    <span class="vr d-none d-sm-block"></span>
+
+    <span>
+      <i class="bi bi-shield-check me-1"></i>
+      Session secured &middot;
+      Role: <strong>{{ user.get_role_display }}</strong>
+    </span>
+
   </div>
+
 </div>
 
 {% endblock %}
