@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Reservations</title>
+</head>
+<body>
+    <h2>My Reservations</h2>
+    <a href="{% url 'home' %}">Back to Home</a>
+    <ul>
+        {% for res in reservations %}
+            <li>
+                {{ res.facility.name }} on {{ res.reservation_date }}
+                ({{ res.start_time|time:"H:i" }} - {{ res.end_time|time:"H:i" }}) -
+                Status: <strong>{{ res.get_status_display }}</strong>
+            </li>
+        {% empty %}
+            <li>You have no reservations.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

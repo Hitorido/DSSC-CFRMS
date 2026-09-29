@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CFRMS Home</title>
+</head>
+<body>
+    <h2>Welcome to DSSC CFRMS, {{ user.get_full_name|default:user.username }}</h2>
+    <p>Role: <strong>{{ user.get_role_display }}</strong></p>
+    {% if user.department %}<p>Department: {{ user.department }}</p>{% endif %}
+
+    <nav>
+        <ul>
+            <li><a href="{% url 'facilities:facility_list' %}">Facilities</a></li>
+            {% if user.is_requester_role %}
+                <li><a href="{% url 'reservations:my_reservations' %}">My Reservations</a></li>
+            {% endif %}
+            {% if user.is_staff_role or user.is_admin_role %}
+                <li><a href="{% url 'reservations:pending_reservations' %}">Pending Reservations</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit">Log Out</button>
+    </form>
+</body>
+</html>

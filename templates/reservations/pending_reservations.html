@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pending Reservations</title>
+</head>
+<body>
+    <h2>Pending Reservation Requests</h2>
+    <a href="{% url 'home' %}">Back to Home</a>
+    <ul>
+        {% for res in reservations %}
+            <li>
+                <strong>{{ res.facility.name }}</strong> on {{ res.reservation_date }}
+                ({{ res.start_time|time:"H:i" }} - {{ res.end_time|time:"H:i" }}) -
+                Requested by: {{ res.requested_by.get_full_name|default:res.requested_by.username }} -
+                Purpose: {{ res.purpose }}
+            </li>
+        {% empty %}
+            <li>No pending reservations.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

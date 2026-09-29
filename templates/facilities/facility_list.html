@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Facilities</title>
+</head>
+<body>
+    <h2>Campus Facilities</h2>
+    <a href="{% url 'home' %}">Back to Home</a>
+    <ul>
+        {% for facility in facilities %}
+            <li>
+                <strong>{{ facility.name }}</strong> ({{ facility.facility_type.name }}) -
+                Capacity: {{ facility.capacity }} - Status: {{ facility.get_status_display }}
+            </li>
+        {% empty %}
+            <li>No facilities registered.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
