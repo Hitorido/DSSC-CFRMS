@@ -183,6 +183,35 @@ class Reservation(models.Model):
                         f'{conflict.end_time.strftime("%H:%M")}).'
                     )
 
+        # 6. Maintenance conflict detection
+        #    Reject the reservation if its time slot overlaps a SCHEDULED maintenance window.
+        #    COMPLETED and CANCELLED maintenance do not block — only SCHEDULED does.
+        #    Adjacent slots (touching exactly at boundary) remain allowed, consistent with
+        #    the existing reservation conflict policy (strict < and >).
+        #
+        #    Deferred import: facilities.models is imported by this module at the top level
+        #    (via `from facilities.models import Facility`). Importing FacilityMaintenance
+        #    here inside the function body avoids a circular import at module load time.
+        if self.facility_id and self.reservation_date and self.start_time and self.end_time:
+            if self.status in self.BLOCKING_STATUSES:
+                if '__all__' not in errors:
+                    from facilities.models import FacilityMaintenance
+                    conflicting_maintenance = FacilityMaintenance.objects.filter(
+                        facility_id=self.facility_id,
+                        maintenance_date=self.reservation_date,
+                        status=FacilityMaintenance.Status.SCHEDULED,
+                        start_time__lt=self.end_time,
+                        end_time__gt=self.start_time,
+                    )
+                    if conflicting_maintenance.exists():
+                        m = conflicting_maintenance.first()
+                        errors['__all__'] = (
+                            f'The facility has scheduled maintenance during this time '
+                            f'({m.start_time.strftime("%H:%M")} \u2013 '
+                            f'{m.end_time.strftime("%H:%M")}). '
+                            f'Please choose a different time slot.'
+                        )
+
         if errors:
             raise ValidationError(errors)
 
