@@ -32,23 +32,29 @@
       <div class="card-header-bar d-flex align-items-center justify-content-between">
         <span><i class="bi bi-info-circle me-2"></i>Reservation Details</span>
         {# Status badge in header #}
+        <div class="text-end">
         {% if reservation.status == 'PENDING' %}
           <span class="badge badge-pending rounded-pill px-3">
             <i class="bi bi-hourglass-split me-1"></i>Pending
           </span>
+          <small class="d-block mt-1">Your reservation is waiting for review.</small>
         {% elif reservation.status == 'APPROVED' %}
           <span class="badge badge-approved rounded-pill px-3">
             <i class="bi bi-check-circle me-1"></i>Approved
           </span>
+          <small class="d-block mt-1">Your reservation has been approved.</small>
         {% elif reservation.status == 'REJECTED' %}
           <span class="badge badge-rejected rounded-pill px-3">
             <i class="bi bi-x-circle me-1"></i>Rejected
           </span>
+          <small class="d-block mt-1">Your reservation was rejected. Please check the rejection reason below.</small>
         {% else %}
           <span class="badge badge-cancelled rounded-pill px-3">
             <i class="bi bi-slash-circle me-1"></i>Cancelled
           </span>
+          <small class="d-block mt-1">This reservation has been cancelled.</small>
         {% endif %}
+        </div>
       </div>
 
       <div class="p-4">
