@@ -1,33 +1,162 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Create Reservation</title>
-</head>
-<body>
-    <h2>New Reservation Request</h2>
-    <a href="{% url 'reservations:my_reservations' %}">Back to My Reservations</a>
+{% extends "base.html" %}
 
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% block title %}New Reservation{% endblock %}
 
-    {% if form.non_field_errors %}
-        <ul style="color: red;">
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-plus-circle me-2"></i>New Reservation Request</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'reservations:my_reservations' %}">My Reservations</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">New Request</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+
+    <div class="cfrms-card">
+      <div class="card-header-bar">
+        <i class="bi bi-calendar2-plus me-2"></i>Reservation Details
+      </div>
+      <div class="p-4">
+
+        {# Non-field errors (e.g. time conflict from model.clean) #}
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+          <ul class="mb-0 ps-0" style="list-style:none;">
             {% for error in form.non_field_errors %}
-                <li>{{ error }}</li>
+              <li>{{ error }}</li>
             {% endfor %}
-        </ul>
-    {% endif %}
+          </ul>
+        </div>
+        {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Submit Request</button>
-    </form>
-</body>
-</html>
+        <form method="post" class="cfrms-form" novalidate>
+          {% csrf_token %}
+
+          {# ── Facility ─────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.facility.id_for_label }}" class="form-label">
+              <i class="bi bi-building me-1"></i>{{ form.facility.label }}
+            </label>
+            <select name="{{ form.facility.html_name }}"
+                    id="{{ form.facility.id_for_label }}"
+                    class="form-select{% if form.facility.errors %} is-invalid{% endif %}"
+                    required>
+              <option value="">— Select a facility —</option>
+              {% for value, label in form.facility.field.choices %}
+                {% if value %}
+                <option value="{{ value }}"
+                  {% if form.facility.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            {% if form.facility.errors %}
+              <div class="invalid-feedback">{{ form.facility.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Purpose ──────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.purpose.id_for_label }}" class="form-label">
+              <i class="bi bi-card-text me-1"></i>{{ form.purpose.label }}
+            </label>
+            <input type="text"
+                   name="{{ form.purpose.html_name }}"
+                   id="{{ form.purpose.id_for_label }}"
+                   class="form-control{% if form.purpose.errors %} is-invalid{% endif %}"
+                   value="{{ form.purpose.value|default:'' }}"
+                   placeholder="e.g. IT Club General Assembly"
+                   maxlength="255"
+                   required>
+            {% if form.purpose.errors %}
+              <div class="invalid-feedback">{{ form.purpose.errors.0 }}</div>
+            {% endif %}
+            <div class="form-text">Briefly describe the event or purpose for this booking.</div>
+          </div>
+
+          {# ── Date ─────────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.reservation_date.id_for_label }}" class="form-label">
+              <i class="bi bi-calendar-date me-1"></i>{{ form.reservation_date.label }}
+            </label>
+            <input type="date"
+                   name="{{ form.reservation_date.html_name }}"
+                   id="{{ form.reservation_date.id_for_label }}"
+                   class="form-control{% if form.reservation_date.errors %} is-invalid{% endif %}"
+                   value="{{ form.reservation_date.value|default:'' }}"
+                   required>
+            {% if form.reservation_date.errors %}
+              <div class="invalid-feedback">{{ form.reservation_date.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Time range ───────────────────────────────────────── #}
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label for="{{ form.start_time.id_for_label }}" class="form-label">
+                <i class="bi bi-clock me-1"></i>{{ form.start_time.label }}
+              </label>
+              <input type="time"
+                     name="{{ form.start_time.html_name }}"
+                     id="{{ form.start_time.id_for_label }}"
+                     class="form-control{% if form.start_time.errors %} is-invalid{% endif %}"
+                     value="{{ form.start_time.value|default:'' }}"
+                     required>
+              {% if form.start_time.errors %}
+                <div class="invalid-feedback">{{ form.start_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div class="col-6">
+              <label for="{{ form.end_time.id_for_label }}" class="form-label">
+                <i class="bi bi-clock-history me-1"></i>{{ form.end_time.label }}
+              </label>
+              <input type="time"
+                     name="{{ form.end_time.html_name }}"
+                     id="{{ form.end_time.id_for_label }}"
+                     class="form-control{% if form.end_time.errors %} is-invalid{% endif %}"
+                     value="{{ form.end_time.value|default:'' }}"
+                     required>
+              {% if form.end_time.errors %}
+                <div class="invalid-feedback">{{ form.end_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {# ── Actions ──────────────────────────────────────────── #}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-cfrms-primary">
+              <i class="bi bi-send me-1"></i>Submit Request
+            </button>
+            <a href="{% url 'reservations:my_reservations' %}"
+               class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    {# Helpful note card #}
+    <div class="alert alert-info d-flex gap-2 mt-3" role="note">
+      <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+      <div style="font-size:.85rem;">
+        Your request will be reviewed by staff. You will be able to see the status
+        update in <strong>My Reservations</strong>.
+        Reservations for facilities that are unavailable or under maintenance
+        cannot be submitted.
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

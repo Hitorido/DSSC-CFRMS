@@ -1,67 +1,227 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Reservation #{{ reservation.pk }}</title>
-</head>
-<body>
-    <h2>Reservation #{{ reservation.pk }}</h2>
+{% extends "base.html" %}
 
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% block title %}Reservation #{{ reservation.pk }}{% endblock %}
 
-    {% if user.is_staff_role or user.is_admin_role %}
-        <a href="{% url 'reservations:pending_reservations' %}">Back to Pending Queue</a>
-    {% else %}
-        <a href="{% url 'reservations:my_reservations' %}">Back to My Reservations</a>
-    {% endif %}
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-calendar2-event me-2"></i>Reservation #{{ reservation.pk }}</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      {% if user.is_staff_role or user.is_admin_role %}
+        <li class="breadcrumb-item">
+          <a href="{% url 'reservations:pending_reservations' %}">Pending Reservations</a>
+        </li>
+      {% else %}
+        <li class="breadcrumb-item">
+          <a href="{% url 'reservations:my_reservations' %}">My Reservations</a>
+        </li>
+      {% endif %}
+      <li class="breadcrumb-item active" aria-current="page">
+        Reservation #{{ reservation.pk }}
+      </li>
+    </ol>
+  </nav>
+</div>
 
-    <table>
-        <tr><th>Facility</th><td>{{ reservation.facility.name }}</td></tr>
-        <tr><th>Date</th><td>{{ reservation.reservation_date }}</td></tr>
-        <tr><th>Time</th><td>{{ reservation.start_time|time:"H:i" }} &ndash; {{ reservation.end_time|time:"H:i" }}</td></tr>
-        <tr><th>Purpose</th><td>{{ reservation.purpose }}</td></tr>
-        <tr><th>Status</th><td><strong>{{ reservation.get_status_display }}</strong></td></tr>
-        <tr><th>Requested By</th><td>{{ reservation.requested_by.get_full_name|default:reservation.requested_by.username }}</td></tr>
-        {% if reservation.reviewed_by %}
-            <tr><th>Reviewed By</th><td>{{ reservation.reviewed_by.get_full_name|default:reservation.reviewed_by.username }}</td></tr>
-            <tr><th>Reviewed At</th><td>{{ reservation.reviewed_at }}</td></tr>
+<div class="row g-4">
+
+  {# ── Left column: reservation data ──────────────────────────────────────── #}
+  <div class="col-12 col-lg-7">
+    <div class="cfrms-card h-100">
+      <div class="card-header-bar d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-info-circle me-2"></i>Reservation Details</span>
+        {# Status badge in header #}
+        {% if reservation.status == 'PENDING' %}
+          <span class="badge badge-pending rounded-pill px-3">
+            <i class="bi bi-hourglass-split me-1"></i>Pending
+          </span>
+        {% elif reservation.status == 'APPROVED' %}
+          <span class="badge badge-approved rounded-pill px-3">
+            <i class="bi bi-check-circle me-1"></i>Approved
+          </span>
+        {% elif reservation.status == 'REJECTED' %}
+          <span class="badge badge-rejected rounded-pill px-3">
+            <i class="bi bi-x-circle me-1"></i>Rejected
+          </span>
+        {% else %}
+          <span class="badge badge-cancelled rounded-pill px-3">
+            <i class="bi bi-slash-circle me-1"></i>Cancelled
+          </span>
         {% endif %}
+      </div>
+
+      <div class="p-4">
+        <dl class="row mb-0" style="font-size:.9rem;">
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-building me-1"></i>Facility
+          </dt>
+          <dd class="col-sm-8 fw-semibold">{{ reservation.facility.name }}</dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-geo-alt me-1"></i>Location
+          </dt>
+          <dd class="col-sm-8">{{ reservation.facility.location }}</dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-card-text me-1"></i>Purpose
+          </dt>
+          <dd class="col-sm-8">{{ reservation.purpose }}</dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-calendar3 me-1"></i>Date
+          </dt>
+          <dd class="col-sm-8">{{ reservation.reservation_date|date:"l, F j, Y" }}</dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-clock me-1"></i>Time
+          </dt>
+          <dd class="col-sm-8">
+            {{ reservation.start_time|time:"H:i" }} &ndash; {{ reservation.end_time|time:"H:i" }}
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-person me-1"></i>Requested By
+          </dt>
+          <dd class="col-sm-8">
+            {{ reservation.requested_by.get_full_name|default:reservation.requested_by.username }}
+            {% if reservation.requested_by.department %}
+              <span class="text-muted" style="font-size:.8rem;">
+                &mdash; {{ reservation.requested_by.department }}
+              </span>
+            {% endif %}
+          </dd>
+
+          <dt class="col-sm-4 text-muted fw-normal">
+            <i class="bi bi-clock-history me-1"></i>Submitted
+          </dt>
+          <dd class="col-sm-8 text-muted" style="font-size:.85rem;">
+            {{ reservation.created_at|date:"M d, Y" }} at {{ reservation.created_at|time:"H:i" }}
+          </dd>
+
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  {# ── Right column: review info + actions ─────────────────────────────────── #}
+  <div class="col-12 col-lg-5 d-flex flex-column gap-4">
+
+    {# Review info (shown only when reviewed) #}
+    {% if reservation.reviewed_by %}
+    <div class="cfrms-card">
+      <div class="card-header-bar">
+        <i class="bi bi-person-check me-2"></i>Review Information
+      </div>
+      <div class="p-4">
+        <dl class="row mb-0" style="font-size:.9rem;">
+          <dt class="col-sm-5 text-muted fw-normal">Reviewed By</dt>
+          <dd class="col-sm-7 fw-semibold">
+            {{ reservation.reviewed_by.get_full_name|default:reservation.reviewed_by.username }}
+          </dd>
+
+          <dt class="col-sm-5 text-muted fw-normal">Reviewed At</dt>
+          <dd class="col-sm-7 text-muted" style="font-size:.85rem;">
+            {{ reservation.reviewed_at|date:"M d, Y" }} at {{ reservation.reviewed_at|time:"H:i" }}
+          </dd>
+        </dl>
+
         {% if reservation.rejection_reason %}
-            <tr><th>Rejection Reason</th><td>{{ reservation.rejection_reason }}</td></tr>
+        <hr class="my-3">
+        <div class="d-flex gap-2 align-items-start">
+          <i class="bi bi-chat-left-text text-danger flex-shrink-0 mt-1"></i>
+          <div>
+            <div class="fw-semibold text-danger mb-1" style="font-size:.85rem;">
+              Rejection Reason
+            </div>
+            <p class="mb-0" style="font-size:.9rem;">{{ reservation.rejection_reason }}</p>
+          </div>
+        </div>
         {% endif %}
-    </table>
+      </div>
+    </div>
+    {% endif %}
 
-    {# Requester: cancel button if eligible #}
+    {# ── REQUESTER: Cancel action ─────────────────────────────────────── #}
     {% if user.is_requester_role and reservation.requested_by == user %}
-        {% if reservation.is_pending or reservation.is_approved %}
-            <form method="post" action="{% url 'reservations:cancel_reservation' reservation.pk %}">
-                {% csrf_token %}
-                <button type="submit">Cancel Reservation</button>
-            </form>
-        {% endif %}
+      {% if reservation.is_pending or reservation.is_approved %}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#7f8c8d;">
+          <i class="bi bi-slash-circle me-2"></i>Cancel Reservation
+        </div>
+        <div class="p-4">
+          <p class="text-muted mb-3" style="font-size:.875rem;">
+            Cancelling will release this time slot. This action cannot be undone.
+          </p>
+          <form method="post"
+                action="{% url 'reservations:cancel_reservation' reservation.pk %}"
+                onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+              <i class="bi bi-slash-circle me-1"></i>Cancel This Reservation
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
     {% endif %}
 
-    {# Staff/Admin: approve and reject forms #}
+    {# ── STAFF / ADMIN: Approve + Reject actions ──────────────────────── #}
     {% if user.is_staff_role or user.is_admin_role %}
-        {% if reservation.is_pending %}
-            <form method="post" action="{% url 'reservations:approve_reservation' reservation.pk %}">
-                {% csrf_token %}
-                <button type="submit">Approve</button>
-            </form>
+      {% if reservation.is_pending %}
 
-            <form method="post" action="{% url 'reservations:reject_reservation' reservation.pk %}">
-                {% csrf_token %}
-                <label for="reason">Rejection Reason:</label>
-                <textarea name="reason" id="reason" rows="3" required></textarea>
-                <button type="submit">Reject</button>
-            </form>
-        {% endif %}
-    {% endif %}
-</body>
-</html>
+      {# Approve #}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#1e8449;">
+          <i class="bi bi-check-circle me-2"></i>Approve Reservation
+        </div>
+        <div class="p-4">
+          <p class="text-muted mb-3" style="font-size:.875rem;">
+            Approving confirms the booking. Conflicting pending requests for the same
+            slot will be blocked at this point.
+          </p>
+          <form method="post"
+                action="{% url 'reservations:approve_reservation' reservation.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check-circle me-1"></i>Approve
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {# Reject #}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#c0392b;">
+          <i class="bi bi-x-circle me-2"></i>Reject Reservation
+        </div>
+        <div class="p-4">
+          <form method="post"
+                action="{% url 'reservations:reject_reservation' reservation.pk %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="reason" class="form-label fw-semibold" style="font-size:.875rem;">
+                Rejection Reason <span class="text-danger">*</span>
+              </label>
+              <textarea name="reason"
+                        id="reason"
+                        class="form-control"
+                        rows="3"
+                        placeholder="Provide a clear reason for rejecting this request…"
+                        required></textarea>
+              <div class="form-text">Required — the requester will see this message.</div>
+            </div>
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-x-circle me-1"></i>Reject
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {% endif %}{# end is_pending #}
+    {% endif %}{# end staff/admin #}
+
+  </div>{# end right column #}
+</div>{# end row #}
+{% endblock %}
