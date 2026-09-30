@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.dateparse import parse_date
 
 from accounts.decorators import requester_required, staff_or_admin_required
+from facilities.models import Facility
 from .forms import ReservationForm
 from .models import Reservation
 
@@ -63,6 +66,56 @@ def pending_reservations_view(request):
         'reservations': reservations,
     }
     return render(request, 'reservations/pending_reservations.html', context)
+
+
+@login_required
+@staff_or_admin_required
+def reservation_report_view(request):
+    """Display a filterable report of existing reservation records."""
+    reservations = Reservation.objects.select_related(
+        'requested_by', 'facility'
+    )
+
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    status = request.GET.get('status', '')
+    facility_id = request.GET.get('facility', '')
+
+    parsed_start_date = parse_date(start_date) if start_date else None
+    parsed_end_date = parse_date(end_date) if end_date else None
+    if parsed_start_date:
+        reservations = reservations.filter(reservation_date__gte=parsed_start_date)
+    if parsed_end_date:
+        reservations = reservations.filter(reservation_date__lte=parsed_end_date)
+    if status:
+        reservations = reservations.filter(status=status)
+    if facility_id:
+        try:
+            reservations = reservations.filter(facility_id=int(facility_id))
+        except ValueError:
+            pass
+
+    summary = reservations.aggregate(
+        total=Count('pk'),
+        pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
+        approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
+    )
+
+    context = {
+        'reservations': reservations,
+        'facilities': Facility.objects.all(),
+        'statuses': Reservation.Status.choices,
+        'filters': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'status': status,
+            'facility': facility_id,
+        },
+        'summary': summary,
+    }
+    return render(request, 'reservations/reservation_report.html', context)
 
 
 @login_required
