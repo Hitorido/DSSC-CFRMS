@@ -516,6 +516,101 @@ class ReservationRejectionTests(WorkflowTestBase):
         self.reservation.refresh_from_db()
         self.assertEqual(self.reservation.status, Reservation.Status.PENDING)
 
+
+class ReservationReportViewTests(WorkflowTestBase):
+
+    def _create_report_reservation(self, *, reservation_date=None, facility=None, status):
+        return Reservation.objects.create(
+            requested_by=self.requester,
+            facility=facility or self.facility,
+            purpose='Report Test Event',
+            reservation_date=reservation_date or self.tomorrow,
+            start_time=datetime.time(13, 0),
+            end_time=datetime.time(15, 0),
+            status=status,
+        )
+
+    def test_staff_can_access_report(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse('reservations:reservation_report'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_access_report(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse('reservations:reservation_report'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_requester_gets_forbidden(self):
+        self.client.force_login(self.requester)
+        response = self.client.get(reverse('reservations:reservation_report'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_user_redirects_to_login(self):
+        response = self.client.get(reverse('reservations:reservation_report'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_status_filter_and_summary_counts(self):
+        approved = self._create_report_reservation(status=Reservation.Status.APPROVED)
+        self._create_report_reservation(status=Reservation.Status.REJECTED)
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse('reservations:reservation_report'),
+            {'status': Reservation.Status.APPROVED},
+        )
+
+        self.assertEqual(list(response.context['reservations']), [approved])
+        self.assertEqual(response.context['summary']['total'], 1)
+        self.assertEqual(response.context['summary']['approved'], 1)
+        self.assertEqual(response.context['summary']['pending'], 0)
+
+    def test_date_filter_limits_report_range(self):
+        later = self._create_report_reservation(
+            reservation_date=self.day_after,
+            status=Reservation.Status.APPROVED,
+        )
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse('reservations:reservation_report'),
+            {'start_date': self.day_after.isoformat(), 'end_date': self.day_after.isoformat()},
+        )
+
+        self.assertEqual(list(response.context['reservations']), [later])
+
+    def test_facility_filter_limits_report(self):
+        other_facility = Facility.objects.create(
+            facility_type=self.facility.facility_type,
+            name='Report Test Room',
+            location='Building C',
+            capacity=25,
+            status=Facility.Status.AVAILABLE,
+        )
+        matching = self._create_report_reservation(
+            facility=other_facility,
+            status=Reservation.Status.APPROVED,
+        )
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse('reservations:reservation_report'),
+            {'facility': other_facility.pk},
+        )
+
+        self.assertEqual(list(response.context['reservations']), [matching])
+
+    def test_report_context_and_table_contain_reservation(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse('reservations:reservation_report'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.reservation, response.context['reservations'])
+        self.assertContains(response, self.facility.name)
+        self.assertContains(response, self.requester.username)
+        self.assertContains(response, self.reservation.purpose)
+
     def test_rejection_stores_reviewed_by(self):
         """Rejection stores the reviewing staff user."""
         self.client.force_login(self.staff_user)
