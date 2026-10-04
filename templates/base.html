@@ -62,6 +62,9 @@
   <a href="{% url 'reservations:pending_reservations' %}" class="nav-link {% if request.resolver_match.url_name == 'pending_reservations' %}active{% endif %}">
     <i class="bi bi-hourglass-split nav-icon"></i> Pending Reservations
   </a>
+  <a href="{% url 'facilities:maintenance_list' %}" class="nav-link {% if request.resolver_match.url_name in 'maintenance_list,maintenance_create,maintenance_detail,maintenance_complete,maintenance_cancel' %}active{% endif %}">
+    <i class="bi bi-tools nav-icon"></i> Maintenance
+  </a>
   {% endif %}
 
   {% if user.is_admin_role %}

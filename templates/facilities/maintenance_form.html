@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule Maintenance{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-plus-circle me-2"></i>Schedule Maintenance</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'facilities:maintenance_list' %}">Maintenance</a></li>
+      <li class="breadcrumb-item active" aria-current="page">New</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+
+    <div class="cfrms-card">
+      <div class="card-header-bar">
+        <i class="bi bi-tools me-2"></i>Maintenance Details
+      </div>
+      <div class="p-4">
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+          <ul class="mb-0 ps-0" style="list-style:none;">
+            {% for error in form.non_field_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" class="cfrms-form" novalidate>
+          {% csrf_token %}
+
+          {# ── Facility ─────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.facility.id_for_label }}" class="form-label">
+              <i class="bi bi-building me-1"></i>{{ form.facility.label }}
+            </label>
+            <select name="{{ form.facility.html_name }}"
+                    id="{{ form.facility.id_for_label }}"
+                    class="form-select{% if form.facility.errors %} is-invalid{% endif %}"
+                    required>
+              <option value="">— Select a facility —</option>
+              {% for value, label in form.facility.field.choices %}
+                {% if value %}
+                <option value="{{ value }}"
+                  {% if form.facility.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            {% if form.facility.errors %}
+              <div class="invalid-feedback">{{ form.facility.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Title ────────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.title.id_for_label }}" class="form-label">
+              <i class="bi bi-card-heading me-1"></i>{{ form.title.label }}
+            </label>
+            <input type="text"
+                   name="{{ form.title.html_name }}"
+                   id="{{ form.title.id_for_label }}"
+                   class="form-control{% if form.title.errors %} is-invalid{% endif %}"
+                   value="{{ form.title.value|default:'' }}"
+                   placeholder="e.g. Annual electrical inspection"
+                   maxlength="200"
+                   required>
+            {% if form.title.errors %}
+              <div class="invalid-feedback">{{ form.title.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Description ──────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.description.id_for_label }}" class="form-label">
+              <i class="bi bi-card-text me-1"></i>{{ form.description.label }}
+            </label>
+            <textarea name="{{ form.description.html_name }}"
+                      id="{{ form.description.id_for_label }}"
+                      class="form-control{% if form.description.errors %} is-invalid{% endif %}"
+                      rows="3"
+                      placeholder="Optional: technicians, scope, special notes…">{{ form.description.value|default:'' }}</textarea>
+            {% if form.description.errors %}
+              <div class="invalid-feedback">{{ form.description.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Date ─────────────────────────────────────────────── #}
+          <div class="mb-3">
+            <label for="{{ form.maintenance_date.id_for_label }}" class="form-label">
+              <i class="bi bi-calendar-date me-1"></i>{{ form.maintenance_date.label }}
+            </label>
+            <input type="date"
+                   name="{{ form.maintenance_date.html_name }}"
+                   id="{{ form.maintenance_date.id_for_label }}"
+                   class="form-control{% if form.maintenance_date.errors %} is-invalid{% endif %}"
+                   value="{{ form.maintenance_date.value|default:'' }}"
+                   required>
+            {% if form.maintenance_date.errors %}
+              <div class="invalid-feedback">{{ form.maintenance_date.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          {# ── Time range ───────────────────────────────────────── #}
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label for="{{ form.start_time.id_for_label }}" class="form-label">
+                <i class="bi bi-clock me-1"></i>{{ form.start_time.label }}
+              </label>
+              <input type="time"
+                     name="{{ form.start_time.html_name }}"
+                     id="{{ form.start_time.id_for_label }}"
+                     class="form-control{% if form.start_time.errors %} is-invalid{% endif %}"
+                     value="{{ form.start_time.value|default:'' }}"
+                     required>
+              {% if form.start_time.errors %}
+                <div class="invalid-feedback">{{ form.start_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div class="col-6">
+              <label for="{{ form.end_time.id_for_label }}" class="form-label">
+                <i class="bi bi-clock-history me-1"></i>{{ form.end_time.label }}
+              </label>
+              <input type="time"
+                     name="{{ form.end_time.html_name }}"
+                     id="{{ form.end_time.id_for_label }}"
+                     class="form-control{% if form.end_time.errors %} is-invalid{% endif %}"
+                     value="{{ form.end_time.value|default:'' }}"
+                     required>
+              {% if form.end_time.errors %}
+                <div class="invalid-feedback">{{ form.end_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {# ── Actions ──────────────────────────────────────────── #}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-cfrms-primary">
+              <i class="bi bi-calendar2-plus me-1"></i>Schedule Maintenance
+            </button>
+            <a href="{% url 'facilities:maintenance_list' %}"
+               class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
