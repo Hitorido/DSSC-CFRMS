@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'accounts',
     'facilities',
     'reservations',
+    'notifications',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
