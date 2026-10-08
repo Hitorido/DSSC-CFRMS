@@ -1,12 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 
 from accounts.decorators import requester_required, staff_or_admin_required
 from facilities.models import Facility
+from notifications.models import Notification
 from .forms import ReservationForm
 from .models import Reservation
 
@@ -274,7 +276,21 @@ def approve_reservation_view(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
 
     try:
-        reservation.approve(reviewer=request.user)
+        with transaction.atomic():
+            # Both the reservation status update and the notification
+            # creation are wrapped in a single database transaction.
+            # If notification creation raises a database exception,
+            # the entire transaction rolls back and the reservation
+            # remains PENDING — no partial writes survive.
+            reservation.approve(reviewer=request.user)
+            Notification.objects.create(
+                recipient=reservation.requested_by,
+                reservation=reservation,
+                message=(
+                    f'Your reservation for {reservation.facility.name} on '
+                    f'{reservation.reservation_date} has been approved.'
+                ),
+            )
         messages.success(
             request,
             f'Reservation #{reservation.pk} has been approved.'
@@ -320,7 +336,22 @@ def reject_reservation_view(request, pk):
         return redirect('reservations:reservation_detail', pk=pk)
 
     try:
-        reservation.reject(reviewer=request.user, reason=reason)
+        with transaction.atomic():
+            # Both the reservation status update and the notification
+            # creation are wrapped in a single database transaction.
+            # If notification creation raises a database exception,
+            # the entire transaction rolls back and the reservation
+            # remains PENDING — no partial writes survive.
+            reservation.reject(reviewer=request.user, reason=reason)
+            Notification.objects.create(
+                recipient=reservation.requested_by,
+                reservation=reservation,
+                message=(
+                    f'Your reservation for {reservation.facility.name} on '
+                    f'{reservation.reservation_date} was rejected. '
+                    f'Reason: {reservation.rejection_reason}'
+                ),
+            )
         messages.success(
             request,
             f'Reservation #{reservation.pk} has been rejected.'

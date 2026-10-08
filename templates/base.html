@@ -47,6 +47,15 @@
     <i class="bi bi-building nav-icon"></i> Facilities
   </a>
 
+  <a href="{% url 'notifications:notification_list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}">
+    <i class="bi bi-bell nav-icon"></i> Notifications
+    {% if unread_notification_count %}
+      <span class="badge bg-danger ms-auto" aria-label="{{ unread_notification_count }} unread">
+        {{ unread_notification_count }}
+      </span>
+    {% endif %}
+  </a>
+
   {% if user.is_requester_role %}
   <span class="nav-section">Reservations</span>
   <a href="{% url 'reservations:create_reservation' %}" class="nav-link {% if request.resolver_match.url_name == 'create_reservation' %}active{% endif %}">
