@@ -445,3 +445,377 @@ class NotificationAtomicityTests(TestCase):
         self.assertEqual(
             Notification.objects.filter(recipient=self.requester).count(), 0
         )
+
+
+# ===========================================================================
+# PHASE 4 — Notification UI, read/unread, context processor, IDOR tests
+# ===========================================================================
+
+class NotificationListViewTests(TestCase):
+    """Authentication, ownership, and content tests for the notification list view."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='list_user',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.other_user = User.objects.create_user(
+            username='list_other',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.notif = Notification.objects.create(
+            recipient=self.user,
+            message='List view test notification.',
+        )
+        self.other_notif = Notification.objects.create(
+            recipient=self.other_user,
+            message='Other user notification — must not appear.',
+        )
+
+    def test_anonymous_redirected_to_login(self):
+        """Anonymous user is redirected to login."""
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_authenticated_user_can_access_list(self):
+        """Authenticated user can access the notification list."""
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('notifications', response.context)
+
+    def test_list_shows_only_own_notifications(self):
+        """QuerySet is scoped to request.user — other users' notifications are excluded."""
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('notifications:notification_list'))
+        qs = response.context['notifications']
+        self.assertIn(self.notif, qs)
+        self.assertNotIn(self.other_notif, qs)
+
+    def test_all_roles_can_access_list(self):
+        """STAFF and ADMIN roles can also access the notification list."""
+        for role in [User.Role.STAFF, User.Role.ADMIN]:
+            staff_or_admin = User.objects.create_user(
+                username=f'list_{role.lower()}',
+                password='testpass123',
+                role=role,
+            )
+            self.client.force_login(staff_or_admin)
+            response = self.client.get(reverse('notifications:notification_list'))
+            self.assertEqual(response.status_code, 200)
+
+
+class MarkNotificationReadTests(TestCase):
+    """Tests for the mark-single-notification-read endpoint."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='read_user',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.other_user = User.objects.create_user(
+            username='read_other',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.notif = Notification.objects.create(
+            recipient=self.user,
+            message='Unread notification.',
+        )
+        self.other_notif = Notification.objects.create(
+            recipient=self.other_user,
+            message='Other user notification.',
+        )
+
+    def test_anonymous_redirected(self):
+        """Anonymous user is redirected to login."""
+        response = self.client.post(
+            reverse('notifications:mark_read', kwargs={'pk': self.notif.pk})
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_get_returns_405(self):
+        """GET request to mark-read returns 405 — must be POST."""
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('notifications:mark_read', kwargs={'pk': self.notif.pk})
+        )
+        self.assertEqual(response.status_code, 405)
+        self.notif.refresh_from_db()
+        self.assertFalse(self.notif.is_read)
+
+    def test_post_marks_notification_as_read(self):
+        """POST marks the notification is_read=True."""
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse('notifications:mark_read', kwargs={'pk': self.notif.pk})
+        )
+        self.notif.refresh_from_db()
+        self.assertTrue(self.notif.is_read)
+
+    def test_post_redirects_to_notification_list(self):
+        """Successful POST redirects to the notification list."""
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('notifications:mark_read', kwargs={'pk': self.notif.pk})
+        )
+        self.assertRedirects(
+            response,
+            reverse('notifications:notification_list'),
+            fetch_redirect_response=False,
+        )
+
+    def test_user_cannot_mark_another_users_notification_read(self):
+        """
+        IDOR protection: user cannot mark another user's notification as read.
+        Must receive 403 Forbidden.
+        """
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('notifications:mark_read', kwargs={'pk': self.other_notif.pk})
+        )
+        self.assertEqual(response.status_code, 403)
+        self.other_notif.refresh_from_db()
+        self.assertFalse(self.other_notif.is_read)
+
+    def test_nonexistent_notification_returns_404(self):
+        """Attempting to mark a non-existent notification returns 404."""
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('notifications:mark_read', kwargs={'pk': 99999})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class MarkAllNotificationsReadTests(TestCase):
+    """Tests for the mark-all-read endpoint."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='markall_user',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.other_user = User.objects.create_user(
+            username='markall_other',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        # Two unread notifications for self.user
+        self.n1 = Notification.objects.create(recipient=self.user, message='First.')
+        self.n2 = Notification.objects.create(recipient=self.user, message='Second.')
+        # One unread notification for other_user
+        self.n_other = Notification.objects.create(
+            recipient=self.other_user, message='Other.'
+        )
+
+    def test_anonymous_redirected(self):
+        """Anonymous user is redirected to login."""
+        response = self.client.post(reverse('notifications:mark_all_read'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response['Location'])
+
+    def test_get_returns_405(self):
+        """GET to mark-all-read returns 405."""
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('notifications:mark_all_read'))
+        self.assertEqual(response.status_code, 405)
+
+    def test_mark_all_read_marks_only_own_notifications(self):
+        """
+        Mark-all-read updates only the current user's notifications.
+        Other users' notifications must remain unread.
+        """
+        self.client.force_login(self.user)
+        self.client.post(reverse('notifications:mark_all_read'))
+
+        self.n1.refresh_from_db()
+        self.n2.refresh_from_db()
+        self.n_other.refresh_from_db()
+
+        self.assertTrue(self.n1.is_read)
+        self.assertTrue(self.n2.is_read)
+        self.assertFalse(self.n_other.is_read)   # other user unaffected
+
+    def test_mark_all_read_redirects_to_list(self):
+        """POST to mark-all-read redirects to notification_list."""
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('notifications:mark_all_read'))
+        self.assertRedirects(
+            response,
+            reverse('notifications:notification_list'),
+            fetch_redirect_response=False,
+        )
+
+
+class UnreadCountContextProcessorTests(TestCase):
+    """Tests for the unread_notification_count context processor."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='ctx_user',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+
+    def test_unread_count_is_zero_for_anonymous(self):
+        """Anonymous users receive unread_notification_count=0 in template context."""
+        response = self.client.get(reverse('accounts:login'))
+        # login page renders without user — context processor returns 0
+        self.assertEqual(response.context.get('unread_notification_count', 0), 0)
+
+    def test_unread_count_reflects_unread_notifications(self):
+        """
+        Context processor injects the correct unread count for the logged-in user.
+        Verified through a real page response so the processor runs for real.
+        """
+        Notification.objects.create(recipient=self.user, message='Unread 1.')
+        Notification.objects.create(recipient=self.user, message='Unread 2.')
+        Notification.objects.create(recipient=self.user, message='Read.', is_read=True)
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.context['unread_notification_count'], 2)
+
+    def test_unread_count_updates_after_mark_all_read(self):
+        """After mark-all-read, unread count drops to 0 on the next request."""
+        Notification.objects.create(recipient=self.user, message='Unread.')
+        self.client.force_login(self.user)
+
+        # Mark all read
+        self.client.post(reverse('notifications:mark_all_read'))
+
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.context['unread_notification_count'], 0)
+
+    def test_unread_count_only_counts_own_notifications(self):
+        """
+        The context processor must not count another user's unread notifications.
+        """
+        other = User.objects.create_user(
+            username='ctx_other', password='x', role=User.Role.REQUESTER
+        )
+        Notification.objects.create(recipient=other, message='Other unread.')
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.context['unread_notification_count'], 0)
+
+
+class NotificationReservationLinkTests(TestCase):
+    """
+    Tests for the reservation link shown in the notification list.
+    The link must only appear when the reservation still exists and
+    the current user is authorised to view it.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.requester = User.objects.create_user(
+            username='link_requester',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.other_requester = User.objects.create_user(
+            username='link_other',
+            password='testpass123',
+            role=User.Role.REQUESTER,
+        )
+        self.staff_user = User.objects.create_user(
+            username='link_staff',
+            password='testpass123',
+            role=User.Role.STAFF,
+        )
+        facility_type = FacilityType.objects.create(name='Link Lab')
+        self.facility = Facility.objects.create(
+            facility_type=facility_type,
+            name='Link Test Room',
+            location='Building L',
+            capacity=20,
+            status=Facility.Status.AVAILABLE,
+        )
+        self.tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        self.reservation = Reservation.objects.create(
+            requested_by=self.requester,
+            facility=self.facility,
+            purpose='Link test reservation',
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+        )
+        # Notification linked to the reservation
+        self.notif = Notification.objects.create(
+            recipient=self.requester,
+            reservation=self.reservation,
+            message='Your reservation was approved.',
+        )
+
+    def test_reservation_link_shown_to_owner(self):
+        """The 'View Reservation' link appears for the reservation owner."""
+        self.client.force_login(self.requester)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertContains(
+            response,
+            reverse('reservations:reservation_detail',
+                    kwargs={'pk': self.reservation.pk})
+        )
+
+    def test_reservation_link_shown_to_staff(self):
+        """Staff users see the 'View Reservation' link for any notification's reservation."""
+        staff_notif = Notification.objects.create(
+            recipient=self.staff_user,
+            reservation=self.reservation,
+            message='Staff-visible notification.',
+        )
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertContains(
+            response,
+            reverse('reservations:reservation_detail',
+                    kwargs={'pk': self.reservation.pk})
+        )
+
+    def test_reservation_link_hidden_for_other_requester(self):
+        """
+        A REQUESTER who is NOT the reservation owner sees a notification without
+        the 'View Reservation' link (they would get 403 if they followed it).
+        The template only renders the link when the user can access the reservation.
+        """
+        # Give other_requester a notification referencing requester's reservation
+        other_notif = Notification.objects.create(
+            recipient=self.other_requester,
+            reservation=self.reservation,
+            message='Notification for different user.',
+        )
+        self.client.force_login(self.other_requester)
+        response = self.client.get(reverse('notifications:notification_list'))
+        # The reservation detail URL should NOT appear in the response for this user
+        self.assertNotContains(
+            response,
+            reverse('reservations:reservation_detail',
+                    kwargs={'pk': self.reservation.pk})
+        )
+
+    def test_deleted_reservation_handled_safely(self):
+        """
+        When reservation is SET_NULL (reservation deleted), the notification
+        still renders without a 'View Reservation' link and no server error.
+        """
+        # Directly set reservation to None to simulate SET_NULL
+        self.notif.reservation = None
+        self.notif.save()
+
+        self.client.force_login(self.requester)
+        response = self.client.get(reverse('notifications:notification_list'))
+        self.assertEqual(response.status_code, 200)
+        # 'View Reservation' link must not appear
+        self.assertNotContains(response, 'View Reservation')
