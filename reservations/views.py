@@ -32,10 +32,25 @@ def my_reservations_view(request):
     """
     reservations = Reservation.objects.filter(
         requested_by=request.user
-    ).select_related('facility').order_by('-reservation_date', '-start_time')
+    ).select_related('facility')
+
+    status = request.GET.get('status', '')
+    reservation_date = request.GET.get('date', '')
+    if status in dict(Reservation.Status.choices):
+        reservations = reservations.filter(status=status)
+    parsed_date = parse_date(reservation_date) if reservation_date else None
+    if parsed_date:
+        reservations = reservations.filter(reservation_date=parsed_date)
+
+    reservations = reservations.order_by('-reservation_date', '-start_time')
 
     context = {
         'reservations': reservations,
+        'statuses': Reservation.Status.choices,
+        'filters': {
+            'status': status,
+            'date': reservation_date,
+        },
     }
     return render(request, 'reservations/my_reservations.html', context)
 

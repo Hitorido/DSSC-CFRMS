@@ -13,6 +13,36 @@
   </nav>
 </div>
 
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-md-4">
+    <label for="facility-search" class="form-label">Search</label>
+    <input id="facility-search" name="search" type="search" class="form-control"
+           value="{{ filters.search }}" placeholder="Name, location, or type">
+  </div>
+  <div class="col-md-3">
+    <label for="facility-status" class="form-label">Status</label>
+    <select id="facility-status" name="status" class="form-select">
+      <option value="">All statuses</option>
+      {% for value, label in facility_statuses %}
+      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="facility-type" class="form-label">Facility type</label>
+    <select id="facility-type" name="facility_type" class="form-select">
+      <option value="">All types</option>
+      {% for facility_type in facility_types %}
+      <option value="{{ facility_type.pk }}" {% if filters.facility_type == facility_type.pk|stringformat:"s" %}selected{% endif %}>{{ facility_type.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">Clear</a>
+  </div>
+</form>
+
 {% if user.is_requester_role %}
 <div class="mb-3">
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">

@@ -13,6 +13,27 @@
   </nav>
 </div>
 
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-md-4">
+    <label for="reservation-status" class="form-label">Status</label>
+    <select id="reservation-status" name="status" class="form-select">
+      <option value="">All statuses</option>
+      {% for value, label in statuses %}
+      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label for="reservation-date" class="form-label">Date</label>
+    <input id="reservation-date" name="date" type="date" class="form-control"
+           value="{{ filters.date }}">
+  </div>
+  <div class="col-md-4 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary">Clear</a>
+  </div>
+</form>
+
 <div class="mb-3">
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> New Reservation
