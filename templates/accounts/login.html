@@ -1,0 +1,145 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — CFRMS</title>
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  >
+  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}">
+</head>
+<body>
+
+<div class="cfrms-login-wrapper">
+  <div class="cfrms-login-card">
+
+    {# ── Branding ──────────────────────────────────────────────────── #}
+    <div class="cfrms-login-logo">
+      <div class="mb-2">
+        <i class="bi bi-building-fill-check text-primary" style="font-size:2.8rem;color:var(--cfrms-primary) !important;"></i>
+      </div>
+      <span class="institution">Davao del Sur State College</span>
+      <span class="system-abbr">CFRMS</span>
+      <span class="text-muted" style="font-size:.82rem;margin-top:.2rem;">
+        Campus Facility Reservation &amp; Management System
+      </span>
+    </div>
+
+    {# ── Non-field / credential errors ─────────────────────────────── #}
+    {% if form.errors %}
+    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+      <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+      <div>Invalid username or password. Please try again.</div>
+    </div>
+    {% endif %}
+
+    {# ── Login form ────────────────────────────────────────────────── #}
+    <form method="post" action="{% url 'accounts:login' %}" novalidate>
+      {% csrf_token %}
+
+      {# Username #}
+      <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">
+          <i class="bi bi-person me-1"></i>Username
+        </label>
+        <input
+          type="text"
+          name="{{ form.username.html_name }}"
+          id="{{ form.username.id_for_label }}"
+          class="form-control{% if form.username.errors %} is-invalid{% endif %}"
+          value="{{ form.username.value|default:'' }}"
+          autocomplete="username"
+          autofocus
+          placeholder="Enter your username"
+          required
+        >
+        {% if form.username.errors %}
+          <div class="invalid-feedback">{{ form.username.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      {# Password #}
+      <div class="mb-4">
+        <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold">
+          <i class="bi bi-lock me-1"></i>Password
+        </label>
+        <div class="input-group">
+          <input
+            type="password"
+            name="{{ form.password.html_name }}"
+            id="{{ form.password.id_for_label }}"
+            class="form-control{% if form.password.errors %} is-invalid{% endif %}"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+            required
+          >
+          {# Toggle password visibility #}
+          <button class="btn btn-outline-secondary"
+                  type="button"
+                  id="togglePassword"
+                  aria-label="Show or hide password">
+            <i class="bi bi-eye" id="togglePasswordIcon"></i>
+          </button>
+        </div>
+        {% if form.password.errors %}
+          <div class="text-danger mt-1" style="font-size:.82rem;">{{ form.password.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="btn btn-cfrms-primary btn-lg">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Log In
+        </button>
+      </div>
+
+      {# Hidden next field preserved for redirect after login #}
+      {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
+    </form>
+
+    <p class="text-center mt-3 mb-0" style="font-size:.875rem;">
+      No account yet?
+      <a href="{% url 'accounts:register' %}" class="fw-semibold">Create one here</a>
+    </p>
+
+    <p class="text-center text-muted mt-3 mb-0" style="font-size:.78rem;">
+      &copy; {% now "Y" %} Davao del Sur State College
+    </p>
+
+  </div>
+</div>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmCxbVpuXKDqRrMqLmPGTuNMvWKv"
+  crossorigin="anonymous">
+</script>
+<script>
+(function () {
+  'use strict';
+  var btn  = document.getElementById('togglePassword');
+  var inp  = document.getElementById('{{ form.password.id_for_label }}');
+  var icon = document.getElementById('togglePasswordIcon');
+  if (!btn || !inp) return;
+  btn.addEventListener('click', function () {
+    var visible = inp.type === 'text';
+    inp.type = visible ? 'password' : 'text';
+    icon.className = visible ? 'bi bi-eye' : 'bi bi-eye-slash';
+    btn.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+  });
+}());
+</script>
+
+</body>
+</html>

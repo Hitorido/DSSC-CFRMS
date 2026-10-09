@@ -1,0 +1,441 @@
+/*
+ * CFRMS – Campus Facility Reservation and Management System
+ * Davao del Sur State College
+ * Custom stylesheet (augments Bootstrap 5)
+ */
+
+/* ─── Root tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --cfrms-primary:   #1a4f8a;   /* DSSC deep blue */
+  --cfrms-accent:    #f5a623;   /* gold accent */
+  --cfrms-sidebar-w: 240px;
+  --cfrms-topbar-h:  56px;
+}
+
+/* ─── Global ─────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f4f6f9;
+  color: #2c3e50;
+}
+
+a {
+  color: var(--cfrms-primary);
+}
+
+a:hover {
+  color: #0d2d57;
+}
+
+/* ─── Top navbar ─────────────────────────────────────────────────────────── */
+.cfrms-topbar {
+  background-color: var(--cfrms-primary);
+  height: var(--cfrms-topbar-h);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+
+.cfrms-topbar .brand {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  white-space: nowrap;
+}
+
+.cfrms-topbar .brand:hover {
+  color: var(--cfrms-accent);
+}
+
+.cfrms-topbar .brand-sub {
+  font-size: .75rem;
+  font-weight: 400;
+  opacity: .8;
+  display: block;
+  line-height: 1.1;
+}
+
+.cfrms-topbar .topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: rgba(255,255,255,.85);
+  font-size: .875rem;
+}
+
+.cfrms-topbar .topbar-right .user-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.cfrms-topbar .topbar-right .user-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.cfrms-topbar .topbar-right .user-role {
+  font-size: .72rem;
+  color: var(--cfrms-accent);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* Hamburger button */
+.cfrms-sidebar-toggle {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.35rem;
+  cursor: pointer;
+  padding: .25rem .5rem;
+  margin-right: .75rem;
+  line-height: 1;
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────────────────────── */
+.cfrms-sidebar {
+  width: var(--cfrms-sidebar-w);
+  position: fixed;
+  top: var(--cfrms-topbar-h);
+  left: 0;
+  bottom: 0;
+  background: #ffffff;
+  border-right: 1px solid #dee2e6;
+  overflow-y: auto;
+  z-index: 1020;
+  transition: transform .25s ease;
+  padding-top: .75rem;
+}
+
+.cfrms-sidebar.collapsed {
+  transform: translateX(-100%);
+}
+
+/* Nav section labels */
+.cfrms-sidebar .nav-section {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #8a94a6;
+  padding: 1rem 1.25rem .35rem;
+}
+
+.cfrms-sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .55rem 1.25rem;
+  color: #4a5568;
+  font-size: .9rem;
+  border-left: 3px solid transparent;
+  transition: background .15s, border-color .15s, color .15s;
+  text-decoration: none;
+}
+
+.cfrms-sidebar .nav-link:hover {
+  background: #eef1f7;
+  color: var(--cfrms-primary);
+  border-left-color: var(--cfrms-primary);
+}
+
+.cfrms-sidebar .nav-link.active {
+  background: #e8edf7;
+  color: var(--cfrms-primary);
+  border-left-color: var(--cfrms-primary);
+  font-weight: 600;
+}
+
+.cfrms-sidebar .nav-link .nav-icon {
+  font-size: 1rem;
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Logout form inside sidebar */
+.cfrms-sidebar .sidebar-logout {
+  padding: .55rem 1.25rem;
+  border-top: 1px solid #e9ecef;
+  margin-top: auto;
+}
+
+.cfrms-sidebar .sidebar-logout button {
+  background: none;
+  border: none;
+  padding: .55rem 0;
+  color: #c0392b;
+  font-size: .9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+}
+
+.cfrms-sidebar .sidebar-logout button:hover {
+  color: #922b21;
+}
+
+/* ─── Main content ────────────────────────────────────────────────────────── */
+.cfrms-main {
+  margin-left: var(--cfrms-sidebar-w);
+  margin-top: var(--cfrms-topbar-h);
+  padding: 1.75rem 2rem;
+  min-height: calc(100vh - var(--cfrms-topbar-h));
+  transition: margin-left .25s ease;
+}
+
+.cfrms-main.sidebar-collapsed {
+  margin-left: 0;
+}
+
+/* ─── Page header ─────────────────────────────────────────────────────────── */
+.cfrms-page-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: .75rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.cfrms-page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--cfrms-primary);
+  margin: 0;
+}
+
+.cfrms-page-header .breadcrumb {
+  margin-bottom: 0;
+  font-size: .82rem;
+}
+
+/* ─── Cards ───────────────────────────────────────────────────────────────── */
+.cfrms-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: .5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.cfrms-card .card-header-bar {
+  background: var(--cfrms-primary);
+  color: #fff;
+  padding: .75rem 1.25rem;
+  border-radius: .5rem .5rem 0 0;
+  font-weight: 600;
+  font-size: .95rem;
+}
+
+/* ─── Status badges ───────────────────────────────────────────────────────── */
+.badge-pending    { background-color: #f39c12; color: #fff; }
+.badge-approved   { background-color: #27ae60; color: #fff; }
+.badge-rejected   { background-color: #c0392b; color: #fff; }
+.badge-cancelled  { background-color: #7f8c8d; color: #fff; }
+.badge-available  { background-color: #27ae60; color: #fff; }
+.badge-unavailable{ background-color: #c0392b; color: #fff; }
+.badge-maintenance{ background-color: #e67e22; color: #fff; }
+
+/* ─── Tables ──────────────────────────────────────────────────────────────── */
+.cfrms-table {
+  font-size: .875rem;
+}
+
+.cfrms-table thead th {
+  background-color: #f1f4f9;
+  color: #4a5568;
+  font-weight: 600;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 2px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.cfrms-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.cfrms-table td {
+  vertical-align: middle;
+}
+
+/* ─── Forms ───────────────────────────────────────────────────────────────── */
+.cfrms-form label {
+  font-weight: 600;
+  font-size: .875rem;
+  color: #2c3e50;
+  margin-bottom: .25rem;
+}
+
+.cfrms-form .form-control,
+.cfrms-form .form-select {
+  border-color: #ced4da;
+  font-size: .9rem;
+}
+
+.cfrms-form .form-control:focus,
+.cfrms-form .form-select:focus {
+  border-color: var(--cfrms-primary);
+  box-shadow: 0 0 0 .2rem rgba(26,79,138,.2);
+}
+
+.cfrms-form .errorlist {
+  list-style: none;
+  padding: 0;
+  margin: .25rem 0 0;
+  color: #c0392b;
+  font-size: .8rem;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-cfrms-primary {
+  background-color: var(--cfrms-primary);
+  border-color: var(--cfrms-primary);
+  color: #fff;
+}
+
+.btn-cfrms-primary:hover {
+  background-color: #153d6e;
+  border-color: #153d6e;
+  color: #fff;
+}
+
+/* ─── Login page ──────────────────────────────────────────────────────────── */
+.cfrms-login-wrapper {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a4f8a 0%, #0d2d57 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.cfrms-login-card {
+  background: #fff;
+  border-radius: .75rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,.22);
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem 2rem;
+}
+
+.cfrms-login-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.75rem;
+  text-align: center;
+}
+
+.cfrms-login-logo .institution {
+  font-size: .8rem;
+  color: #8a94a6;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: .3rem;
+}
+
+.cfrms-login-logo .system-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--cfrms-primary);
+  line-height: 1.2;
+}
+
+.cfrms-login-logo .system-abbr {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--cfrms-primary);
+  letter-spacing: .05em;
+}
+
+/* ─── Dashboard stats ─────────────────────────────────────────────────────── */
+.stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: .5rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.stat-card .stat-icon {
+  font-size: 2rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card .stat-label {
+  font-size: .78rem;
+  color: #8a94a6;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.stat-card .stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.1;
+}
+
+/* ─── Footer ──────────────────────────────────────────────────────────────── */
+.cfrms-footer {
+  text-align: center;
+  font-size: .78rem;
+  color: #adb5bd;
+  padding: 1.25rem 0 .75rem;
+  border-top: 1px solid #e9ecef;
+  margin-top: 2rem;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+  .cfrms-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .cfrms-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .cfrms-main {
+    margin-left: 0;
+  }
+
+  .cfrms-login-card {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .cfrms-page-header h1 {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Sidebar always visible on md+ */
+  .cfrms-sidebar-toggle {
+    display: none;
+  }
+}

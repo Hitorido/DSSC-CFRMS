@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CFRMS{% endblock %} — DSSC</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<header class="cfrms-topbar">
+  <button class="cfrms-sidebar-toggle d-md-none" id="sidebarToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="cfrmsidebar">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="{% url 'home' %}" class="brand">
+    <span>
+      <span class="brand-sub">Davao del Sur State College</span>
+      Campus Facility Reservation &amp; Management System
+    </span>
+  </a>
+  {% if user.is_authenticated %}
+  <div class="topbar-right">
+    <div class="user-label d-none d-sm-flex">
+      <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+      <span class="user-role">{{ user.get_role_display }}</span>
+    </div>
+    <i class="bi bi-person-circle fs-5 text-white"></i>
+  </div>
+  {% endif %}
+</header>
+
+{% if user.is_authenticated %}
+<nav class="cfrms-sidebar" id="cfrmsidebar" aria-label="Main navigation">
+
+  <span class="nav-section">Navigation</span>
+
+  <a href="{% url 'home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+    <i class="bi bi-house-door nav-icon"></i> Home
+  </a>
+
+  <a href="{% url 'facilities:facility_list' %}" class="nav-link {% if request.resolver_match.app_name == 'facilities' %}active{% endif %}">
+    <i class="bi bi-building nav-icon"></i> Facilities
+  </a>
+
+  <a href="{% url 'notifications:notification_list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}">
+    <i class="bi bi-bell nav-icon"></i> Notifications
+    {% if unread_notification_count %}
+      <span class="badge bg-danger ms-auto" aria-label="{{ unread_notification_count }} unread">
+        {{ unread_notification_count }}
+      </span>
+    {% endif %}
+  </a>
+
+  {% if user.is_requester_role %}
+  <span class="nav-section">Reservations</span>
+  <a href="{% url 'reservations:create_reservation' %}" class="nav-link {% if request.resolver_match.url_name == 'create_reservation' %}active{% endif %}">
+    <i class="bi bi-plus-circle nav-icon"></i> Create Reservation
+  </a>
+  <a href="{% url 'reservations:my_reservations' %}" class="nav-link {% if request.resolver_match.url_name == 'my_reservations' %}active{% endif %}">
+    <i class="bi bi-calendar2-check nav-icon"></i> My Reservations
+  </a>
+  {% endif %}
+
+  {% if user.is_staff_role or user.is_admin_role %}
+  <span class="nav-section">Management</span>
+  <a href="{% url 'reservations:pending_reservations' %}" class="nav-link {% if request.resolver_match.url_name == 'pending_reservations' %}active{% endif %}">
+    <i class="bi bi-hourglass-split nav-icon"></i> Pending Reservations
+  </a>
+  <a href="{% url 'facilities:maintenance_list' %}" class="nav-link {% if request.resolver_match.url_name in 'maintenance_list,maintenance_create,maintenance_detail,maintenance_complete,maintenance_cancel' %}active{% endif %}">
+    <i class="bi bi-tools nav-icon"></i> Maintenance
+  </a>
+  {% endif %}
+
+  {% if user.is_admin_role %}
+  <span class="nav-section">Administration</span>
+  <a href="{% url 'admin:index' %}" class="nav-link" target="_blank" rel="noopener">
+    <i class="bi bi-gear nav-icon"></i> Admin Panel
+    <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:.7rem;opacity:.6;"></i>
+  </a>
+  {% endif %}
+
+  <div class="sidebar-logout" style="position:absolute;bottom:0;left:0;right:0;">
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit">
+        <i class="bi bi-box-arrow-left nav-icon"></i> Log Out
+      </button>
+    </form>
+  </div>
+
+</nav>
+{% endif %}
+
+<main class="cfrms-main {% if not user.is_authenticated %}ms-0{% endif %}" id="cfrmsMain">
+
+  {% if messages %}
+  <div class="mb-3" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+      {% if message.tags == 'success' %}
+        <i class="bi bi-check-circle-fill flex-shrink-0 mt-1"></i>
+      {% elif message.tags == 'error' or message.tags == 'danger' %}
+        <i class="bi bi-x-circle-fill flex-shrink-0 mt-1"></i>
+      {% elif message.tags == 'warning' %}
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+      {% else %}
+        <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+      {% endif %}
+      <div>{{ message }}</div>
+      <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <footer class="cfrms-footer">
+    &copy; {% now "Y" %} Davao del Sur State College &mdash;
+    Campus Facility Reservation &amp; Management System
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmCxbVpuXKDqRrMqLmPGTuNMvWKv" crossorigin="anonymous"></script>
+
+<script>
+(function () {
+  var btn  = document.getElementById('sidebarToggle');
+  var side = document.getElementById('cfrmsidebar');
+  if (!btn || !side) return;
+  btn.addEventListener('click', function () {
+    var open = side.classList.toggle('mobile-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  side.querySelectorAll('a.nav-link').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (window.innerWidth < 768) {
+        side.classList.remove('mobile-open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+}());
+</script>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

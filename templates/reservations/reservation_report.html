@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Reservation Report</title>
+</head>
+<body>
+    <h1>Reservation Report</h1>
+    <a href="{% url 'home' %}">Back to Home</a>
+
+    <form method="get">
+        <label for="start_date">Start Date</label>
+        <input type="date" id="start_date" name="start_date" value="{{ filters.start_date }}">
+
+        <label for="end_date">End Date</label>
+        <input type="date" id="end_date" name="end_date" value="{{ filters.end_date }}">
+
+        <label for="status">Status</label>
+        <select id="status" name="status">
+            <option value="">All statuses</option>
+            {% for value, label in statuses %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="facility">Facility</label>
+        <select id="facility" name="facility">
+            <option value="">All facilities</option>
+            {% for facility in facilities %}
+                <option value="{{ facility.pk }}" {% if filters.facility == facility.pk|stringformat:"s" %}selected{% endif %}>{{ facility.name }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Filter</button>
+        <a href="{% url 'reservations:reservation_report' %}">Clear filters</a>
+    </form>
+
+    <section aria-label="Reservation totals">
+        <p>Total: {{ summary.total }}</p>
+        <p>Pending: {{ summary.pending }}</p>
+        <p>Approved: {{ summary.approved }}</p>
+        <p>Rejected: {{ summary.rejected }}</p>
+        <p>Cancelled: {{ summary.cancelled }}</p>
+    </section>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Facility</th>
+                <th>Requester</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Status</th>
+                <th>Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for reservation in reservations %}
+                <tr>
+                    <td>{{ reservation.reservation_date }}</td>
+                    <td>{{ reservation.facility.name }}</td>
+                    <td>{{ reservation.requested_by.get_full_name|default:reservation.requested_by.username }}</td>
+                    <td>{{ reservation.start_time|time:"H:i" }}</td>
+                    <td>{{ reservation.end_time|time:"H:i" }}</td>
+                    <td>{{ reservation.get_status_display }}</td>
+                    <td>{{ reservation.purpose }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7">No reservations match these filters.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Maintenance #{{ maintenance.pk }}{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-tools me-2"></i>Maintenance #{{ maintenance.pk }}</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'facilities:maintenance_list' %}">Maintenance</a></li>
+      <li class="breadcrumb-item active" aria-current="page">#{{ maintenance.pk }}</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-12 col-lg-8">
+    <div class="cfrms-card">
+      <div class="card-header-bar d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-info-circle me-2"></i>Maintenance Details</span>
+        <div class="text-end">
+          {% if maintenance.status == 'SCHEDULED' %}
+            <span class="badge badge-pending rounded-pill px-3">
+              <i class="bi bi-calendar2-check me-1"></i>Scheduled
+            </span>
+          {% elif maintenance.status == 'COMPLETED' %}
+            <span class="badge badge-approved rounded-pill px-3">
+              <i class="bi bi-check-circle me-1"></i>Completed
+            </span>
+          {% else %}
+            <span class="badge badge-cancelled rounded-pill px-3">
+              <i class="bi bi-slash-circle me-1"></i>Cancelled
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="p-4">
+        <table class="table cfrms-table">
+          <tbody>
+            <tr>
+              <th scope="row" style="width:35%;">Facility</th>
+              <td>
+                <span class="fw-semibold">{{ maintenance.facility.name }}</span>
+                <div class="text-muted" style="font-size:.82rem;">
+                  <i class="bi bi-geo-alt me-1"></i>{{ maintenance.facility.location }}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Title</th>
+              <td>{{ maintenance.title }}</td>
+            </tr>
+            {% if maintenance.description %}
+            <tr>
+              <th scope="row">Description</th>
+              <td>{{ maintenance.description }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+              <th scope="row">Date</th>
+              <td>
+                <i class="bi bi-calendar3 text-muted me-1"></i>
+                {{ maintenance.maintenance_date|date:"l, F j, Y" }}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Time</th>
+              <td>
+                <i class="bi bi-clock text-muted me-1"></i>
+                {{ maintenance.start_time|time:"H:i" }} &ndash; {{ maintenance.end_time|time:"H:i" }}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Scheduled by</th>
+              <td>
+                {% if maintenance.created_by %}
+                  {{ maintenance.created_by.get_full_name|default:maintenance.created_by.username }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Created</th>
+              <td class="text-muted" style="font-size:.85rem;">
+                {{ maintenance.created_at|date:"M d, Y H:i" }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {# ── Actions — only available when SCHEDULED ─────────────── #}
+        {% if maintenance.status == 'SCHEDULED' %}
+        <hr>
+        <div class="d-flex gap-2 flex-wrap">
+
+          <form method="post"
+                action="{% url 'facilities:maintenance_complete' maintenance.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-cfrms-primary">
+              <i class="bi bi-check-circle me-1"></i>Mark as Completed
+            </button>
+          </form>
+
+          <form method="post"
+                action="{% url 'facilities:maintenance_cancel' maintenance.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+              <i class="bi bi-slash-circle me-1"></i>Cancel Maintenance
+            </button>
+          </form>
+
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-4 mt-3 mt-lg-0">
+    <div class="cfrms-card">
+      <div class="card-header-bar">
+        <i class="bi bi-info-circle me-2"></i>About Maintenance Scheduling
+      </div>
+      <div class="p-3" style="font-size:.85rem; color: var(--cfrms-muted, #6c757d);">
+        <p class="mb-2">
+          <i class="bi bi-shield-check text-success me-1"></i>
+          <strong>Scheduled</strong> maintenance windows block overlapping
+          reservation requests for the same facility.
+        </p>
+        <p class="mb-2">
+          <i class="bi bi-check-circle text-success me-1"></i>
+          <strong>Completed</strong> records are kept for historical reference
+          and do not affect future bookings.
+        </p>
+        <p class="mb-0">
+          <i class="bi bi-slash-circle text-secondary me-1"></i>
+          <strong>Cancelled</strong> windows release the time slot
+          and do not block reservations.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <a href="{% url 'facilities:maintenance_list' %}"
+         class="btn btn-outline-secondary w-100">
+        <i class="bi bi-arrow-left me-1"></i>Back to Maintenance List
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
