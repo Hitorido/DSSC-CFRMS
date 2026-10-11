@@ -1,5 +1,6 @@
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import PasswordChangeForm, UserCreationForm
 from django import forms
+from django.core.exceptions import ValidationError
 from .models import User
 
 
@@ -57,3 +58,65 @@ class RegisterForm(UserCreationForm):
         if commit:
             user.save()
         return user
+
+
+class ProfileForm(forms.ModelForm):
+    """Allow users to edit personal details without exposing role permissions."""
+
+    class Meta:
+        model = User
+        fields = [
+            'profile_image',
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+            'user_type',
+            'department',
+            'bio',
+        ]
+        widgets = {
+            'first_name': forms.TextInput(attrs={'autocomplete': 'given-name'}),
+            'last_name': forms.TextInput(attrs={'autocomplete': 'family-name'}),
+            'email': forms.EmailInput(attrs={'autocomplete': 'email'}),
+            'phone_number': forms.TextInput(attrs={'type': 'tel', 'autocomplete': 'tel'}),
+            'department': forms.TextInput(),
+            'bio': forms.Textarea(attrs={'rows': 4, 'maxlength': 280}),
+            'profile_image': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+        }
+        labels = {
+            'user_type': 'Account type',
+            'department': 'Department or course',
+            'bio': 'About me',
+            'profile_image': 'Profile photo',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.ClearableFileInput):
+                field.widget.attrs.setdefault('class', 'form-control profile-file-input')
+            elif isinstance(field.widget, forms.Textarea):
+                field.widget.attrs.setdefault('class', 'form-control')
+            elif isinstance(field.widget, forms.Select):
+                field.widget.attrs.setdefault('class', 'form-select')
+            else:
+                field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean_profile_image(self):
+        image = self.cleaned_data.get('profile_image')
+        uploaded_image = self.files.get(self.add_prefix('profile_image'))
+        if uploaded_image and uploaded_image.size > 5 * 1024 * 1024:
+            raise ValidationError('Choose an image smaller than 5 MB.')
+        return image
+
+
+class CFRMSPasswordChangeForm(PasswordChangeForm):
+    """Apply the shared form styling to Django's built-in password form."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control', 'autocomplete': 'current-password'})
+        self.fields['new_password1'].widget.attrs['autocomplete'] = 'new-password'
+        self.fields['new_password2'].widget.attrs['autocomplete'] = 'new-password'

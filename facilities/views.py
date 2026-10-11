@@ -1,12 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.decorators import staff_or_admin_required
-from .forms import FacilityMaintenanceForm
-from .models import Facility, FacilityMaintenance
+from accounts.decorators import admin_required, staff_or_admin_required
+from .forms import FacilityCreateForm, FacilityMaintenanceForm
+from .models import Facility, FacilityMaintenance, FacilityType
 
 
 @login_required
@@ -20,11 +22,52 @@ def facility_list_view(request):
         - facilities: QuerySet of all Facility records, ordered by name,
                       with facility_type pre-fetched via select_related
     """
-    facilities = Facility.objects.select_related('facility_type').all().order_by('name')
+    facilities = Facility.objects.select_related('facility_type').all()
+    search = request.GET.get('search', '').strip()
+    status = request.GET.get('status', '')
+    facility_type = request.GET.get('facility_type', '')
+
+    if search:
+        facilities = facilities.filter(
+            Q(name__icontains=search)
+            | Q(location__icontains=search)
+            | Q(facility_type__name__icontains=search)
+        )
+    if status in dict(Facility.Status.choices):
+        facilities = facilities.filter(status=status)
+    if facility_type:
+        try:
+            facilities = facilities.filter(facility_type_id=int(facility_type))
+        except (TypeError, ValueError):
+            facilities = facilities.none()
+
+    facilities = facilities.order_by('name')
     context = {
         'facilities': facilities,
+        'facility_statuses': Facility.Status.choices,
+        'facility_types': FacilityType.objects.all(),
+        'filters': {
+            'search': search,
+            'status': status,
+            'facility_type': facility_type,
+        },
     }
     return render(request, 'facilities/facility_list.html', context)
+
+
+@admin_required
+@transaction.atomic
+def facility_create_view(request):
+    form = FacilityCreateForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        facility = form.save()
+        messages.success(request, f'{facility.name} has been added to campus facilities.')
+        return redirect('facilities:facility_list')
+
+    return render(request, 'facilities/facility_form.html', {
+        'form': form,
+        'facility_types': form.facility_types,
+    })
 
 
 # ---------------------------------------------------------------------------

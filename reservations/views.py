@@ -34,10 +34,34 @@ def my_reservations_view(request):
     """
     reservations = Reservation.objects.filter(
         requested_by=request.user
-    ).select_related('facility').order_by('-reservation_date', '-start_time')
+    ).select_related('facility')
+
+    status = request.GET.get('status', '')
+    reservation_date = request.GET.get('date', '')
+    if status in dict(Reservation.Status.choices):
+        reservations = reservations.filter(status=status)
+    parsed_date = parse_date(reservation_date) if reservation_date else None
+    if parsed_date:
+        reservations = reservations.filter(reservation_date=parsed_date)
+
+    reservations = reservations.order_by('-reservation_date', '-start_time')
+
+    reservation_summary = reservations.aggregate(
+        total=Count('pk'),
+        pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
+        approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
+    )
 
     context = {
         'reservations': reservations,
+        'reservation_summary': reservation_summary,
+        'statuses': Reservation.Status.choices,
+        'filters': {
+            'status': status,
+            'date': reservation_date,
+        },
     }
     return render(request, 'reservations/my_reservations.html', context)
 
@@ -163,7 +187,11 @@ def create_reservation_view(request):
                 # back onto the form so the template can display them.
                 form.add_error(None, exc)
     else:
-        form = ReservationForm()
+        initial = {}
+        selected_facility = request.GET.get('facility', '')
+        if selected_facility.isdecimal() and len(selected_facility) <= 18:
+            initial['facility'] = int(selected_facility)
+        form = ReservationForm(initial=initial)
 
     return render(request, 'reservations/reservation_form.html', {'form': form})
 

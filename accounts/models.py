@@ -45,6 +45,23 @@ class User(AbstractUser):
         default='',
         help_text='College, department, or office affiliation at DSSC.',
     )
+    phone_number = models.CharField(
+        max_length=30,
+        blank=True,
+        default='',
+        help_text='Optional contact number.',
+    )
+    bio = models.CharField(
+        max_length=280,
+        blank=True,
+        default='',
+        help_text='A short profile description (280 characters maximum).',
+    )
+    profile_image = models.ImageField(
+        upload_to='profile_images/',
+        blank=True,
+        help_text='Optional profile photo. Maximum file size: 5 MB.',
+    )
 
     is_synthetic = models.BooleanField(
         default=False,
@@ -81,4 +98,14 @@ class User(AbstractUser):
     def is_requester_role(self):
         """Returns True if the user has the CFRMS REQUESTER authorization role."""
         return self.role == self.Role.REQUESTER
+
+    @property
+    def is_student_role(self):
+        """Student-facing requester classification; permissions remain requester-scoped."""
+        return self.is_requester_role and self.user_type == self.UserType.STUDENT
+
+    @property
+    def is_faculty_role(self):
+        """Faculty-facing requester classification; permissions remain requester-scoped."""
+        return self.is_requester_role and self.user_type == self.UserType.FACULTY
 

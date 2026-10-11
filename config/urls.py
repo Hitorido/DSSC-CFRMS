@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
@@ -18,3 +20,6 @@ urlpatterns = [
     # Analytics JSON API (Phase 6.5.2)
     path('api/analytics/', include('analytics.urls')),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

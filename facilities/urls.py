@@ -4,6 +4,7 @@ from . import views
 app_name = 'facilities'
 
 urlpatterns = [
+    path('create/', views.facility_create_view, name='facility_create'),
     # Facility list (all authenticated users)
     path('', views.facility_list_view, name='facility_list'),
 
