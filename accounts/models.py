@@ -63,6 +63,11 @@ class User(AbstractUser):
         help_text='Optional profile photo. Maximum file size: 5 MB.',
     )
 
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
+    )
+
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'

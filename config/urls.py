@@ -16,6 +16,9 @@ urlpatterns = [
     path('facilities/', include('facilities.urls')),
     path('reservations/', include('reservations.urls')),
     path('notifications/', include('notifications.urls')),
+    
+    # Analytics JSON API (Phase 6.5.2)
+    path('api/analytics/', include('analytics.urls')),
 ]
 
 if settings.DEBUG:

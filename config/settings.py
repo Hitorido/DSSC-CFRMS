@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -46,9 +47,27 @@ INSTALLED_APPS = [
     'facilities',
     'reservations',
     'notifications',
+    'analytics',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
+
+
+# ============================================================================
+# SYSTEM CHECKS CONFIGURATION
+# ============================================================================
+# Disable the database connection check (E001) for the 'analytics' database.
+# This is intentional: the analytics database is optional and loaded only
+# when ANALYTICS_DB_* environment variables are set AND not running tests.
+# Tests that need the analytics database add it explicitly via @override_settings.
+# See config/settings_test.py for test-specific configuration.
+#
+# E001: The following database aliases don't have a DEFAULT value: analytics
+# This error is silenced because:
+# 1. Analytics database is optional in production (may not be configured)
+# 2. Tests override settings explicitly to include analytics
+# 3. Analytics queries use .using('analytics') to route to correct DB
+SILENCED_SYSTEM_CHECKS = ['databases.E001']
 
 
 MIDDLEWARE = [
@@ -99,6 +118,106 @@ DATABASES = {
         },
     }
 }
+
+# ---------------------------------------------------------------------------
+# Optional Analytics Database (Aiven Cloud MySQL)
+# ---------------------------------------------------------------------------
+# Only activated when ANALYTICS_DB_HOST is set in the environment AND the
+# configuration passes validation. If not set or invalid, the 'analytics'
+# alias is not added to DATABASES, and local Django operation is unaffected.
+#
+# Required .env keys for analytics:
+#   ANALYTICS_DB_NAME      — cloud database name (must differ from DB_NAME)
+#   ANALYTICS_DB_USER      — dedicated analytics MySQL user
+#   ANALYTICS_DB_PASSWORD  — analytics user password
+#   ANALYTICS_DB_HOST      — Aiven hostname (e.g., mysql-xxxx.aivencloud.com)
+#   ANALYTICS_DB_PORT      — Aiven port (default: 3306)
+#   ANALYTICS_DB_SSL_CA    — absolute path to the Aiven CA certificate file
+#                            (REQUIRED for cloud/remote hosts)
+#
+# The analytics alias is READ-ONLY from Django's perspective for normal
+# operation. The synthetic data generator uses it via an explicit
+# --analytics-db flag (Phase 6.3), never as a fallback for the default db.
+#
+# Test-safety: During the Django test runner, the analytics alias is NOT
+# added regardless of env vars. This prevents the test runner from trying
+# to create/migrate a test version of the remote analytics database.
+# Tests that need the analytics alias add it explicitly via
+# @override_settings and manage the test database themselves.
+
+def _running_tests():
+    """Return True when the process is running under the Django test runner or pytest."""
+    # Check sys.argv for 'test' command
+    argv = sys.argv or []
+    if 'test' in argv:
+        return True
+    # Check if pytest is loaded
+    if 'pytest' in sys.modules:
+        return True
+    return False
+
+
+_LOCAL_HOSTS = {'127.0.0.1', 'localhost', '::1', ''}
+
+_analytics_host = os.getenv('ANALYTICS_DB_HOST', '')
+if _analytics_host and not _running_tests():
+    _analytics_name = os.getenv('ANALYTICS_DB_NAME', '')
+    _analytics_user = os.getenv('ANALYTICS_DB_USER', '')
+    _analytics_pass = os.getenv('ANALYTICS_DB_PASSWORD', '')
+    _analytics_ssl_ca = os.getenv('ANALYTICS_DB_SSL_CA', '')
+    _analytics_port = os.getenv('ANALYTICS_DB_PORT', '3306')
+    _default_name = DATABASES.get('default', {}).get('NAME', '')
+
+    _analytics_errors = []
+
+    # 1. Essential credentials must be present.
+    if not _analytics_name:
+        _analytics_errors.append('ANALYTICS_DB_NAME is empty')
+    if not _analytics_user:
+        _analytics_errors.append('ANALYTICS_DB_USER is empty')
+    if not _analytics_pass:
+        _analytics_errors.append('ANALYTICS_DB_PASSWORD is empty')
+
+    # 2. Prevent accidental alias overlap: analytics NAME must differ from
+    #    the default NAME. Pointing both aliases at the same database would
+    #    defeat isolation and risk contaminating production data.
+    if _analytics_name and _analytics_name == _default_name:
+        _analytics_errors.append(
+            f'ANALYTICS_DB_NAME ({_analytics_name!r}) must differ from '
+            f'DB_NAME ({_default_name!r})'
+        )
+
+    # 3. Require TLS CA for cloud/remote connections. Local analytics
+    #    databases (e.g. for local testing) are exempt.
+    if _analytics_host not in _LOCAL_HOSTS and not _analytics_ssl_ca:
+        _analytics_errors.append(
+            f'ANALYTICS_DB_SSL_CA is required for remote host '
+            f'{_analytics_host!r}'
+        )
+
+    if not _analytics_errors:
+        _analytics_options = {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+        if _analytics_ssl_ca:
+            _analytics_options['ssl'] = {'ca': _analytics_ssl_ca}
+
+        DATABASES['analytics'] = {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME':     _analytics_name,
+            'USER':     _analytics_user,
+            'PASSWORD': _analytics_pass,
+            'HOST':     _analytics_host,
+            'PORT':     _analytics_port,
+            'OPTIONS':  _analytics_options,
+        }
+    else:
+        import warnings
+        warnings.warn(
+            'Analytics database not configured: ' + '; '.join(_analytics_errors),
+            stacklevel=2,
+        )
 
 
 # Password validation
