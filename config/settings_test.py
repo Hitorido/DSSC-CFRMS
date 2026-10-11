@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'facilities',
     'notifications',
     'reservations',
+    'analytics',
 ]
 
 MIDDLEWARE = [

@@ -47,9 +47,27 @@ INSTALLED_APPS = [
     'facilities',
     'reservations',
     'notifications',
+    'analytics',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
+
+
+# ============================================================================
+# SYSTEM CHECKS CONFIGURATION
+# ============================================================================
+# Disable the database connection check (E001) for the 'analytics' database.
+# This is intentional: the analytics database is optional and loaded only
+# when ANALYTICS_DB_* environment variables are set AND not running tests.
+# Tests that need the analytics database add it explicitly via @override_settings.
+# See config/settings_test.py for test-specific configuration.
+#
+# E001: The following database aliases don't have a DEFAULT value: analytics
+# This error is silenced because:
+# 1. Analytics database is optional in production (may not be configured)
+# 2. Tests override settings explicitly to include analytics
+# 3. Analytics queries use .using('analytics') to route to correct DB
+SILENCED_SYSTEM_CHECKS = ['databases.E001']
 
 
 MIDDLEWARE = [
@@ -128,10 +146,12 @@ DATABASES = {
 # @override_settings and manage the test database themselves.
 
 def _running_tests():
-    """Return True when the process is running under the Django test runner."""
+    """Return True when the process is running under the Django test runner or pytest."""
+    # Check sys.argv for 'test' command
     argv = sys.argv or []
-    if any(arg == 'test' for arg in argv):
+    if 'test' in argv:
         return True
+    # Check if pytest is loaded
     if 'pytest' in sys.modules:
         return True
     return False
