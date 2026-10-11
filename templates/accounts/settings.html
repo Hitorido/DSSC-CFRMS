@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-sliders me-2"></i>Settings</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Settings</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="settings-layout">
+  <section class="cfrms-card settings-card" aria-labelledby="appearanceHeading">
+    <div class="settings-card-icon appearance-icon"><i class="bi bi-circle-half"></i></div>
+    <div class="settings-card-content">
+      <span class="section-eyebrow">PERSONALIZE</span>
+      <h2 id="appearanceHeading">Appearance</h2>
+      <p>Choose how CFRMS looks on this device.</p>
+      <label for="themePreference" class="form-label">Theme</label>
+      <select class="form-select settings-theme-select" id="themePreference">
+        <option value="system">Use device setting</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <div class="form-text">Your choice is saved in this browser.</div>
+    </div>
+  </section>
+
+  <section class="cfrms-card settings-card" aria-labelledby="accountHeading">
+    <div class="settings-card-icon account-icon"><i class="bi bi-person-vcard"></i></div>
+    <div class="settings-card-content">
+      <span class="section-eyebrow">YOUR ACCOUNT</span>
+      <h2 id="accountHeading">Profile information</h2>
+      <p>Update your name, contact details, department, and profile photo.</p>
+      <a href="{% url 'accounts:profile' %}" class="btn btn-outline-primary"><i class="bi bi-pencil me-1"></i>Edit profile</a>
+    </div>
+  </section>
+
+  <section class="cfrms-card settings-card" aria-labelledby="securityHeading">
+    <div class="settings-card-icon security-icon"><i class="bi bi-shield-lock"></i></div>
+    <div class="settings-card-content">
+      <span class="section-eyebrow">SECURITY</span>
+      <h2 id="securityHeading">Password</h2>
+      <p>Change your password to keep your account secure.</p>
+      <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-primary"><i class="bi bi-key me-1"></i>Change password</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

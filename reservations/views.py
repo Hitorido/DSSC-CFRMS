@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import requester_required, staff_or_admin_required
@@ -31,8 +32,17 @@ def my_reservations_view(request):
         requested_by=request.user
     ).select_related('facility').order_by('-reservation_date', '-start_time')
 
+    reservation_summary = reservations.aggregate(
+        total=Count('pk'),
+        pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
+        approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
+    )
+
     context = {
         'reservations': reservations,
+        'reservation_summary': reservation_summary,
     }
     return render(request, 'reservations/my_reservations.html', context)
 
@@ -108,7 +118,11 @@ def create_reservation_view(request):
                 # back onto the form so the template can display them.
                 form.add_error(None, exc)
     else:
-        form = ReservationForm()
+        initial = {}
+        selected_facility = request.GET.get('facility', '')
+        if selected_facility.isdecimal() and len(selected_facility) <= 18:
+            initial['facility'] = int(selected_facility)
+        form = ReservationForm(initial=initial)
 
     return render(request, 'reservations/reservation_form.html', {'form': form})
 
