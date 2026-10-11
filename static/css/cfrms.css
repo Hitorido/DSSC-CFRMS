@@ -709,6 +709,7 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .dashboard-metric-label { color: #8391a2; font-size: .75rem; font-weight: 600; }
 .dashboard-metric-copy strong { margin-top: .15rem; color: #20364f; font-size: 1.55rem; line-height: 1; }
 .dashboard-metric-copy strong small { color: #98a5b3; font-size: .9rem; font-weight: 500; }
+.dashboard-metric-note { color: #8593a2; font-size: .7rem; line-height: 1.1; }
 .dashboard-metric-arrow { color: #a7b3c0; font-size: .85rem; transition: transform .2s ease, color .2s ease; }
 .dashboard-metric-link:hover .dashboard-metric-arrow { color: var(--cfrms-primary); transform: translate(2px,-2px); }
 
@@ -872,6 +873,7 @@ html[data-theme="dark"] .home-welcome .badge { color: #deebf5; background-color:
 html[data-theme="dark"] .home-greeting, html[data-theme="dark"] .stat-card .stat-value, html[data-theme="dark"] .dashboard-metric-copy strong, html[data-theme="dark"] .upcoming-panel-heading h2 { color: #e1ebf3; }
 html[data-theme="dark"] .quick-action-card .stat-value { color: #a9d5f3 !important; }
 html[data-theme="dark"] .home-subtitle, html[data-theme="dark"] .stat-card .stat-label, html[data-theme="dark"] .dashboard-metric-label { color: #9aabba; }
+html[data-theme="dark"] .dashboard-metric-note { color: #9aabba; }
 html[data-theme="dark"] .stat-card:hover, html[data-theme="dark"] .dashboard-metric-link:hover .dashboard-metric { border-color: #39536a; box-shadow: 0 16px 32px rgba(0,0,0,.24); }
 html[data-theme="dark"] .dashboard-metric { border-color: #2b3d4f; background: #182735; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
 html[data-theme="dark"] .dashboard-metric-copy strong small { color: #93a5b5; }
