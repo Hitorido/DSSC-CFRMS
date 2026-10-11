@@ -73,6 +73,11 @@ class Reservation(models.Model):
         help_text='Explanation provided by staff/admin if rejected.',
     )
 
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text='Timestamp when the reservation request was submitted.',

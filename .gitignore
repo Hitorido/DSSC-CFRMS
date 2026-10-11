@@ -8,6 +8,8 @@ venv/
 
 # Environment variables / secrets
 .env
+.env.analytics
+*.pem
 
 # Django
 db.sqlite3

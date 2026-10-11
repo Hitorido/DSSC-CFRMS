@@ -39,6 +39,10 @@ class Notification(models.Model):
         default=False,
         help_text='False until the recipient explicitly reads this notification.',
     )
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text='Timestamp when this notification was created.',

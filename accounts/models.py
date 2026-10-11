@@ -46,6 +46,11 @@ class User(AbstractUser):
         help_text='College, department, or office affiliation at DSSC.',
     )
 
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
+    )
+
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'

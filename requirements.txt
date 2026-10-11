@@ -1,5 +1,6 @@
 asgiref==3.12.1
 Django==5.1.15
+Faker==33.1.0
 PyMySQL==1.2.3
 python-dotenv==1.2.3
 sqlparse==0.6.0

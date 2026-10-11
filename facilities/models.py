@@ -19,6 +19,10 @@ class FacilityType(models.Model):
         default='',
         help_text='Optional summary of what this category encompasses.',
     )
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text='Timestamp when this facility type was created.',
@@ -76,6 +80,10 @@ class Facility(models.Model):
         choices=Status.choices,
         default=Status.AVAILABLE,
         help_text='Current physical operational status (AVAILABLE, UNAVAILABLE, MAINTENANCE).',
+    )
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -164,6 +172,10 @@ class FacilityMaintenance(models.Model):
         choices=Status.choices,
         default=Status.SCHEDULED,
         help_text='Current lifecycle status of this maintenance record.',
+    )
+    is_synthetic = models.BooleanField(
+        default=False,
+        help_text='True if this record was created by the synthetic data generator.',
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
