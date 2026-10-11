@@ -43,24 +43,56 @@
   </div>
 </form>
 
-{% if user.is_requester_role %}
-<div class="mb-3">
+{% if user.is_requester_role or user.is_admin_role %}
+<div class="page-actions mb-3">
+  {% if user.is_admin_role %}
+  <a href="{% url 'facilities:facility_create' %}" class="btn btn-cfrms-primary">
+    <i class="bi bi-plus-circle me-1"></i> Add Facility
+  </a>
+  {% endif %}
+  {% if user.is_requester_role %}
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Reserve a Facility
   </a>
+  {% endif %}
 </div>
 {% endif %}
 
 <div class="cfrms-card">
   <div class="card-header-bar d-flex align-items-center justify-content-between">
     <span><i class="bi bi-list-ul me-2"></i>Registered Facilities</span>
-    <span class="badge bg-light text-dark fw-normal">
+    <span class="badge bg-light text-dark fw-normal" id="facilityTotalCount">
       {{ facilities|length }} facilit{{ facilities|length|pluralize:"y,ies" }}
     </span>
   </div>
 
   {% if facilities %}
-  <div class="table-responsive">
+  <div class="facility-toolbar">
+    <label class="facility-search input-group" for="facilitySearch">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="search" class="form-control" id="facilitySearch"
+             placeholder="Search facilities, locations, or types" autocomplete="off">
+    </label>
+    <label class="visually-hidden" for="facilityStatus">Filter by status</label>
+    <select class="form-select facility-status-filter" id="facilityStatus">
+      <option value="all">All statuses</option>
+      <option value="AVAILABLE">Available</option>
+      <option value="UNAVAILABLE">Unavailable</option>
+      <option value="MAINTENANCE">Under maintenance</option>
+    </select>
+    <label class="facility-capacity-filter">
+      <span class="visually-hidden">Minimum facility capacity</span>
+      <input type="number" class="form-control" id="facilityCapacity" min="1"
+             inputmode="numeric" placeholder="Min. capacity" aria-label="Minimum facility capacity">
+    </label>
+    <button type="button" class="btn btn-outline-secondary facility-reset" id="facilityReset" hidden>
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+    </button>
+    <span class="facility-results" id="facilityResultCount" aria-live="polite">
+      Showing {{ facilities|length }} of {{ facilities|length }} facilities
+    </span>
+  </div>
+  <div class="table-responsive" id="facilityTableWrap">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
         <tr>
@@ -76,7 +108,10 @@
       </thead>
       <tbody>
         {% for facility in facilities %}
-        <tr>
+        <tr data-facility-row
+            data-facility-status="{{ facility.status }}"
+            data-facility-capacity="{{ facility.capacity }}"
+            data-facility-search="{{ facility.name|lower }} {{ facility.facility_type.name|lower }} {{ facility.location|lower }} {{ facility.description|lower }}">
           <td>
             <div class="fw-semibold">{{ facility.name }}</div>
             {% if facility.description %}
@@ -114,7 +149,7 @@
           {% if user.is_requester_role %}
           <td class="text-center">
             {% if facility.status == 'AVAILABLE' %}
-            <a href="{% url 'reservations:create_reservation' %}"
+            <a href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}"
                class="btn btn-sm btn-cfrms-primary">
               Reserve
             </a>
@@ -128,6 +163,11 @@
       </tbody>
     </table>
   </div>
+  <div class="filter-empty-state" id="facilityNoResults" hidden>
+    <i class="bi bi-search"></i>
+    <p class="mb-1">No facilities match these filters.</p>
+    <span>Try a different search or reset the filters.</span>
+  </div>
 
   {% else %}
   <div class="p-5 text-center text-muted">
@@ -137,4 +177,50 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var search = document.getElementById('facilitySearch');
+  var status = document.getElementById('facilityStatus');
+  var capacity = document.getElementById('facilityCapacity');
+  var reset = document.getElementById('facilityReset');
+  var count = document.getElementById('facilityResultCount');
+  var empty = document.getElementById('facilityNoResults');
+  var table = document.getElementById('facilityTableWrap');
+  if (!search || !status) return;
+
+  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-facility-row]'));
+  function filterFacilities() {
+    var query = search.value.trim().toLocaleLowerCase();
+    var selectedStatus = status.value;
+    var minimumCapacity = Number(capacity.value || 0);
+    var visible = 0;
+    rows.forEach(function (row) {
+      var matchesText = row.getAttribute('data-facility-search').indexOf(query) !== -1;
+      var matchesStatus = selectedStatus === 'all' || row.getAttribute('data-facility-status') === selectedStatus;
+      var matchesCapacity = Number(row.getAttribute('data-facility-capacity')) >= minimumCapacity;
+      var show = matchesText && matchesStatus && matchesCapacity;
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    count.textContent = 'Showing ' + visible + ' of ' + rows.length + ' facilities';
+    empty.hidden = visible !== 0;
+    table.hidden = visible === 0;
+    reset.hidden = !query && selectedStatus === 'all' && !minimumCapacity;
+  }
+
+  search.addEventListener('input', filterFacilities);
+  status.addEventListener('change', filterFacilities);
+  capacity.addEventListener('input', filterFacilities);
+  reset.addEventListener('click', function () {
+    search.value = '';
+    status.value = 'all';
+    capacity.value = '';
+    filterFacilities();
+    search.focus();
+  });
+}());
+</script>
 {% endblock %}

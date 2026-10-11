@@ -1,12 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.decorators import staff_or_admin_required
-from .forms import FacilityMaintenanceForm
+from accounts.decorators import admin_required, staff_or_admin_required
+from .forms import FacilityCreateForm, FacilityMaintenanceForm
 from .models import Facility, FacilityMaintenance, FacilityType
 
 
@@ -52,6 +53,21 @@ def facility_list_view(request):
         },
     }
     return render(request, 'facilities/facility_list.html', context)
+
+
+@admin_required
+@transaction.atomic
+def facility_create_view(request):
+    form = FacilityCreateForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        facility = form.save()
+        messages.success(request, f'{facility.name} has been added to campus facilities.')
+        return redirect('facilities:facility_list')
+
+    return render(request, 'facilities/facility_form.html', {
+        'form': form,
+        'facility_types': form.facility_types,
+    })
 
 
 # ---------------------------------------------------------------------------

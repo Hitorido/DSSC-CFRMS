@@ -1,7 +1,8 @@
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import path, reverse_lazy
 
-from .views import register_view
+from .forms import CFRMSPasswordChangeForm
+from .views import profile_view, register_view, settings_view
 
 app_name = 'accounts'
 
@@ -23,5 +24,23 @@ urlpatterns = [
         'register/',
         register_view,
         name='register',
+    ),
+    path('profile/', profile_view, name='profile'),
+    path('settings/', settings_view, name='settings'),
+    path(
+        'password/change/',
+        auth_views.PasswordChangeView.as_view(
+            form_class=CFRMSPasswordChangeForm,
+            template_name='accounts/password_change.html',
+            success_url=reverse_lazy('accounts:password_change_done'),
+        ),
+        name='password_change',
+    ),
+    path(
+        'password/change/done/',
+        auth_views.PasswordChangeDoneView.as_view(
+            template_name='accounts/password_change_done.html',
+        ),
+        name='password_change_done',
     ),
 ]
