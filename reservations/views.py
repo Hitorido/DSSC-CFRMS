@@ -1,10 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.dateparse import parse_date
 
 from accounts.decorators import requester_required, staff_or_admin_required
+from facilities.models import Facility
+from notifications.models import Notification
 from .forms import ReservationForm
 from .models import Reservation
 
@@ -30,7 +34,17 @@ def my_reservations_view(request):
     """
     reservations = Reservation.objects.filter(
         requested_by=request.user
-    ).select_related('facility').order_by('-reservation_date', '-start_time')
+    ).select_related('facility')
+
+    status = request.GET.get('status', '')
+    reservation_date = request.GET.get('date', '')
+    if status in dict(Reservation.Status.choices):
+        reservations = reservations.filter(status=status)
+    parsed_date = parse_date(reservation_date) if reservation_date else None
+    if parsed_date:
+        reservations = reservations.filter(reservation_date=parsed_date)
+
+    reservations = reservations.order_by('-reservation_date', '-start_time')
 
     reservation_summary = reservations.aggregate(
         total=Count('pk'),
@@ -43,6 +57,11 @@ def my_reservations_view(request):
     context = {
         'reservations': reservations,
         'reservation_summary': reservation_summary,
+        'statuses': Reservation.Status.choices,
+        'filters': {
+            'status': status,
+            'date': reservation_date,
+        },
     }
     return render(request, 'reservations/my_reservations.html', context)
 
@@ -73,6 +92,56 @@ def pending_reservations_view(request):
         'reservations': reservations,
     }
     return render(request, 'reservations/pending_reservations.html', context)
+
+
+@login_required
+@staff_or_admin_required
+def reservation_report_view(request):
+    """Display a filterable report of existing reservation records."""
+    reservations = Reservation.objects.select_related(
+        'requested_by', 'facility'
+    )
+
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    status = request.GET.get('status', '')
+    facility_id = request.GET.get('facility', '')
+
+    parsed_start_date = parse_date(start_date) if start_date else None
+    parsed_end_date = parse_date(end_date) if end_date else None
+    if parsed_start_date:
+        reservations = reservations.filter(reservation_date__gte=parsed_start_date)
+    if parsed_end_date:
+        reservations = reservations.filter(reservation_date__lte=parsed_end_date)
+    if status:
+        reservations = reservations.filter(status=status)
+    if facility_id:
+        try:
+            reservations = reservations.filter(facility_id=int(facility_id))
+        except ValueError:
+            pass
+
+    summary = reservations.aggregate(
+        total=Count('pk'),
+        pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
+        approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
+    )
+
+    context = {
+        'reservations': reservations,
+        'facilities': Facility.objects.all(),
+        'statuses': Reservation.Status.choices,
+        'filters': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'status': status,
+            'facility': facility_id,
+        },
+        'summary': summary,
+    }
+    return render(request, 'reservations/reservation_report.html', context)
 
 
 @login_required
@@ -235,7 +304,21 @@ def approve_reservation_view(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
 
     try:
-        reservation.approve(reviewer=request.user)
+        with transaction.atomic():
+            # Both the reservation status update and the notification
+            # creation are wrapped in a single database transaction.
+            # If notification creation raises a database exception,
+            # the entire transaction rolls back and the reservation
+            # remains PENDING — no partial writes survive.
+            reservation.approve(reviewer=request.user)
+            Notification.objects.create(
+                recipient=reservation.requested_by,
+                reservation=reservation,
+                message=(
+                    f'Your reservation for {reservation.facility.name} on '
+                    f'{reservation.reservation_date} has been approved.'
+                ),
+            )
         messages.success(
             request,
             f'Reservation #{reservation.pk} has been approved.'
@@ -281,7 +364,22 @@ def reject_reservation_view(request, pk):
         return redirect('reservations:reservation_detail', pk=pk)
 
     try:
-        reservation.reject(reviewer=request.user, reason=reason)
+        with transaction.atomic():
+            # Both the reservation status update and the notification
+            # creation are wrapped in a single database transaction.
+            # If notification creation raises a database exception,
+            # the entire transaction rolls back and the reservation
+            # remains PENDING — no partial writes survive.
+            reservation.reject(reviewer=request.user, reason=reason)
+            Notification.objects.create(
+                recipient=reservation.requested_by,
+                reservation=reservation,
+                message=(
+                    f'Your reservation for {reservation.facility.name} on '
+                    f'{reservation.reservation_date} was rejected. '
+                    f'Reason: {reservation.rejection_reason}'
+                ),
+            )
         messages.success(
             request,
             f'Reservation #{reservation.pk} has been rejected.'

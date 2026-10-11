@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-bell me-2"></i>Notifications</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Notifications</li>
+    </ol>
+  </nav>
+</div>
+
+{% if notifications %}
+<div class="mb-3 d-flex justify-content-end">
+  <form method="post" action="{% url 'notifications:mark_all_read' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-check2-all me-1"></i>Mark all as read
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<div class="cfrms-card">
+  <div class="card-header-bar d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-bell me-2"></i>Your Notifications</span>
+    <span class="badge bg-light text-dark fw-normal">
+      {{ notifications|length }} notification{{ notifications|length|pluralize }}
+    </span>
+  </div>
+
+  {% if notifications %}
+  <ul class="list-group list-group-flush">
+    {% for notif in notifications %}
+    <li class="list-group-item d-flex align-items-start gap-3 py-3
+               {% if not notif.is_read %}bg-light fw-semibold{% endif %}">
+
+      {# Unread indicator dot #}
+      <span class="mt-1 flex-shrink-0">
+        {% if not notif.is_read %}
+          <i class="bi bi-circle-fill text-primary" style="font-size:.55rem;" aria-label="Unread"></i>
+        {% else %}
+          <i class="bi bi-circle text-muted" style="font-size:.55rem;" aria-label="Read"></i>
+        {% endif %}
+      </span>
+
+      <div class="flex-grow-1">
+        <div>{{ notif.message }}</div>
+        <div class="text-muted mt-1" style="font-size:.8rem;">
+          <i class="bi bi-clock me-1"></i>{{ notif.created_at|date:"M d, Y H:i" }}
+
+          {# Link to reservation if it still exists and the user can access it #}
+          {% if notif.reservation %}
+            {% if user.is_staff_role or user.is_admin_role or notif.reservation.requested_by == user %}
+              &mdash;
+              <a href="{% url 'reservations:reservation_detail' notif.reservation.pk %}"
+                 class="text-decoration-none">
+                View Reservation
+              </a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      {# Mark-read action — only shown for unread notifications #}
+      {% if not notif.is_read %}
+      <form method="post"
+            action="{% url 'notifications:mark_read' notif.pk %}"
+            class="flex-shrink-0">
+        {% csrf_token %}
+        <button type="submit"
+                class="btn btn-sm btn-outline-secondary"
+                aria-label="Mark notification {{ notif.pk }} as read"
+                title="Mark as read">
+          <i class="bi bi-check2"></i>
+        </button>
+      </form>
+      {% endif %}
+
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-bell-slash" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-0">You have no notifications.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path('', include('accounts.urls')),
     path('facilities/', include('facilities.urls')),
     path('reservations/', include('reservations.urls')),
+    path('notifications/', include('notifications.urls')),
 ]
 
 if settings.DEBUG:
