@@ -34,22 +34,50 @@
   </div>
 </form>
 
-<div class="mb-3">
+<div class="page-actions mb-3">
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> New Reservation
   </a>
+  <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Track each request from submission to decision.</span>
 </div>
 
 <div class="cfrms-card">
   <div class="card-header-bar d-flex align-items-center justify-content-between">
     <span><i class="bi bi-list-check me-2"></i>Your Reservation Requests</span>
     <span class="badge bg-light text-dark fw-normal">
-      {{ reservations|length }} record{{ reservations|length|pluralize }}
+      <span id="reservationVisibleCount">{{ reservation_summary.total }} record{{ reservation_summary.total|pluralize }}</span>
     </span>
   </div>
 
   {% if reservations %}
-  <div class="table-responsive">
+  <div class="reservation-toolbar">
+    <div class="reservation-filter-group" role="group" aria-label="Filter reservations by status">
+      <button type="button" class="reservation-filter active" data-reservation-filter="all" aria-pressed="true">
+        All <span>{{ reservation_summary.total }}</span>
+      </button>
+      <button type="button" class="reservation-filter" data-reservation-filter="PENDING" aria-pressed="false">
+        Pending <span>{{ reservation_summary.pending }}</span>
+      </button>
+      <button type="button" class="reservation-filter" data-reservation-filter="APPROVED" aria-pressed="false">
+        Approved <span>{{ reservation_summary.approved }}</span>
+      </button>
+      <button type="button" class="reservation-filter" data-reservation-filter="REJECTED" aria-pressed="false">
+        Rejected <span>{{ reservation_summary.rejected }}</span>
+      </button>
+      <button type="button" class="reservation-filter" data-reservation-filter="CANCELLED" aria-pressed="false">
+        Cancelled <span>{{ reservation_summary.cancelled }}</span>
+      </button>
+    </div>
+    <label class="reservation-search input-group" for="reservationSearch">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="search" class="form-control" id="reservationSearch"
+             placeholder="Search facility or purpose" autocomplete="off">
+    </label>
+  </div>
+  <div class="reservation-results-note" id="reservationResultNote" aria-live="polite">
+    Showing {{ reservation_summary.total }} of {{ reservation_summary.total }} requests
+  </div>
+  <div class="table-responsive" id="reservationTableWrap">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
         <tr>
@@ -64,7 +92,8 @@
       </thead>
       <tbody>
         {% for res in reservations %}
-        <tr>
+        <tr data-reservation-row data-reservation-status="{{ res.status }}"
+            data-reservation-search="{{ res.facility.name|lower }} {{ res.facility.location|lower }} {{ res.purpose|lower }} {{ res.pk }}">
           <td class="text-muted" style="font-size:.8rem;">{{ res.pk }}</td>
           <td>
             <div class="fw-semibold">{{ res.facility.name }}</div>
@@ -112,6 +141,11 @@
       </tbody>
     </table>
   </div>
+  <div class="filter-empty-state" id="reservationNoResults" hidden>
+    <i class="bi bi-funnel"></i>
+    <p class="mb-1">No requests match these filters.</p>
+    <span>Choose another status or search term.</span>
+  </div>
 
   {% else %}
   <div class="p-5 text-center text-muted">
@@ -124,4 +158,50 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var search = document.getElementById('reservationSearch');
+  if (!search) return;
+
+  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-reservation-row]'));
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-reservation-filter]'));
+  var count = document.getElementById('reservationVisibleCount');
+  var note = document.getElementById('reservationResultNote');
+  var empty = document.getElementById('reservationNoResults');
+  var table = document.getElementById('reservationTableWrap');
+  var selectedStatus = 'all';
+
+  function filterReservations() {
+    var query = search.value.trim().toLocaleLowerCase();
+    var visible = 0;
+    rows.forEach(function (row) {
+      var matchesText = row.getAttribute('data-reservation-search').indexOf(query) !== -1;
+      var matchesStatus = selectedStatus === 'all' || row.getAttribute('data-reservation-status') === selectedStatus;
+      var show = matchesText && matchesStatus;
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    count.textContent = visible + ' record' + (visible === 1 ? '' : 's');
+    note.textContent = 'Showing ' + visible + ' of ' + rows.length + ' requests';
+    empty.hidden = visible !== 0;
+    table.hidden = visible === 0;
+  }
+
+  buttons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      selectedStatus = button.getAttribute('data-reservation-filter');
+      buttons.forEach(function (item) {
+        var active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      filterReservations();
+    });
+  });
+  search.addEventListener('input', filterReservations);
+}());
+</script>
 {% endblock %}
