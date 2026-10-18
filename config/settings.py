@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -118,6 +119,19 @@ DATABASES = {
         },
     }
 }
+
+# The primary application database may also be hosted remotely. Configure TLS
+# with DB_SSL_CA; reuse the analytics CA setting when the same Aiven service is
+# promoted to the primary database.
+_default_db_host = DATABASES['default']['HOST']
+_local_db_hosts = {'127.0.0.1', 'localhost', '::1', ''}
+_default_db_ssl_ca = os.getenv('DB_SSL_CA', '') or os.getenv('ANALYTICS_DB_SSL_CA', '')
+if _default_db_host not in _local_db_hosts:
+    if not _default_db_ssl_ca:
+        raise ImproperlyConfigured(
+            'DB_SSL_CA is required when DB_HOST points to a remote database.'
+        )
+    DATABASES['default']['OPTIONS']['ssl'] = {'ca': _default_db_ssl_ca}
 
 # ---------------------------------------------------------------------------
 # Optional Analytics Database (Aiven Cloud MySQL)
