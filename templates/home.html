@@ -182,6 +182,77 @@
   {% endif %}
 </div>
 
+<section class="dashboard-analytics mb-4" aria-labelledby="dashboardAnalyticsHeading">
+  <div class="dashboard-analytics-heading">
+    <div>
+      <span class="section-eyebrow">BUSINESS INTELLIGENCE</span>
+      <h2 id="dashboardAnalyticsHeading">Facility reservation analytics</h2>
+      <p class="mb-0">Review booking trends, workflow status, and facility demand for better planning.</p>
+    </div>
+    <span class="dashboard-analytics-scope">
+      <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
+      {% if user.is_staff_role or user.is_admin_role %}Campus-wide data{% else %}Your reservations{% endif %}
+    </span>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-6">
+      <article class="cfrms-card dashboard-chart-card h-100" aria-labelledby="monthlyChartHeading">
+        <div class="dashboard-chart-heading">
+          <div>
+            <span class="section-eyebrow">LAST SIX MONTHS</span>
+            <h3 id="monthlyChartHeading">Reservation trend</h3>
+          </div>
+          <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+        </div>
+        <div class="dashboard-chart-wrap">
+          {% if chart_has_month_data %}
+            <canvas id="monthlyReservationsChart" role="img" aria-label="Line chart showing reservation totals by month"></canvas>
+          {% else %}
+            <p class="dashboard-chart-empty">No reservations recorded in the past six months.</p>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+    <div class="col-12 col-xl-6">
+      <article class="cfrms-card dashboard-chart-card h-100" aria-labelledby="statusChartHeading">
+        <div class="dashboard-chart-heading">
+          <div>
+            <span class="section-eyebrow">ALL-TIME WORKFLOW</span>
+            <h3 id="statusChartHeading">Reservation status</h3>
+          </div>
+          <i class="bi bi-pie-chart" aria-hidden="true"></i>
+        </div>
+        <div class="dashboard-chart-wrap dashboard-chart-wrap-compact">
+          {% if chart_has_status_data %}
+            <canvas id="reservationStatusChart" role="img" aria-label="Doughnut chart showing reservation totals by status"></canvas>
+          {% else %}
+            <p class="dashboard-chart-empty">No reservation status data is available yet.</p>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+    <div class="col-12">
+      <article class="cfrms-card dashboard-chart-card" aria-labelledby="facilityChartHeading">
+        <div class="dashboard-chart-heading">
+          <div>
+            <span class="section-eyebrow">LAST SIX MONTHS</span>
+            <h3 id="facilityChartHeading">Most requested facilities</h3>
+          </div>
+          <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+        </div>
+        <div class="dashboard-chart-wrap dashboard-chart-wrap-facilities">
+          {% if chart_has_facility_data %}
+            <canvas id="facilityDemandChart" role="img" aria-label="Bar chart showing the five most requested facilities"></canvas>
+          {% else %}
+            <p class="dashboard-chart-empty">No facility demand data is available for this period.</p>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
 {% if user.is_requester_role %}
 <section class="cfrms-card upcoming-panel mb-4" aria-labelledby="upcomingHeading">
   <div class="upcoming-panel-heading">
@@ -359,4 +430,111 @@
 </div>
 
  </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_month_labels|json_script:"dashboard-month-labels" }}
+{{ chart_month_values|json_script:"dashboard-month-values" }}
+{{ chart_statuses|json_script:"dashboard-statuses" }}
+{{ chart_facility_labels|json_script:"dashboard-facility-labels" }}
+{{ chart_facility_values|json_script:"dashboard-facility-values" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (!window.Chart) return;
+
+  function readDashboardData(id) {
+    var element = document.getElementById(id);
+    return element ? JSON.parse(element.textContent) : [];
+  }
+
+  var monthLabels = readDashboardData('dashboard-month-labels');
+  var monthValues = readDashboardData('dashboard-month-values');
+  var statuses = readDashboardData('dashboard-statuses');
+  var facilityLabels = readDashboardData('dashboard-facility-labels');
+  var facilityValues = readDashboardData('dashboard-facility-values');
+  var gridColor = 'rgba(120, 138, 158, 0.18)';
+  var tickColor = getComputedStyle(document.documentElement).getPropertyValue('--cfrms-text-muted').trim() || '#738096';
+
+  var monthlyCanvas = document.getElementById('monthlyReservationsChart');
+  if (monthlyCanvas) {
+    new Chart(monthlyCanvas, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [{
+          label: 'Reservations',
+          data: monthValues,
+          borderColor: '#2563a6',
+          backgroundColor: 'rgba(37, 99, 166, 0.12)',
+          pointBackgroundColor: '#2563a6',
+          pointRadius: 4,
+          tension: 0.32,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: tickColor } },
+          y: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+
+  var statusCanvas = document.getElementById('reservationStatusChart');
+  if (statusCanvas) {
+    new Chart(statusCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: statuses.map(function (item) { return item.label; }),
+        datasets: [{
+          data: statuses.map(function (item) { return item.total; }),
+          backgroundColor: ['#e6a23c', '#35a873', '#df5b61', '#8793a2'],
+          borderColor: 'transparent',
+          hoverOffset: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, padding: 18, color: tickColor } }
+        }
+      }
+    });
+  }
+
+  var facilityCanvas = document.getElementById('facilityDemandChart');
+  if (facilityCanvas) {
+    new Chart(facilityCanvas, {
+      type: 'bar',
+      data: {
+        labels: facilityLabels,
+        datasets: [{
+          label: 'Reservations',
+          data: facilityValues,
+          backgroundColor: '#4f8a73',
+          borderRadius: 6,
+          maxBarThickness: 30
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
+          y: { grid: { display: false }, ticks: { color: tickColor } }
+        }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

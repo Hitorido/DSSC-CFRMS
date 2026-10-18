@@ -1238,7 +1238,50 @@ html[data-theme="dark"] .role-dashboard .home-welcome {
 html[data-theme="dark"] .role-dashboard .cfrms-page-header h1 { color: var(--dashboard-role-accent); }
 html[data-theme="dark"] .role-dashboard .dashboard-role-badge { color: #10202d; }
 
+/* Role-scoped business intelligence charts */
+.dashboard-analytics-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: .25rem 0 1rem;
+}
+.dashboard-analytics-heading h2 {
+  margin: .2rem 0 .35rem;
+  color: #20364f;
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+.dashboard-analytics-heading p { color: #8290a0; font-size: .8rem; }
+.dashboard-analytics-scope {
+  flex: 0 0 auto;
+  padding: .4rem .65rem;
+  border: 1px solid var(--dashboard-role-border, var(--cfrms-border));
+  border-radius: 999px;
+  color: var(--dashboard-role-accent, var(--cfrms-primary));
+  background: var(--dashboard-role-soft, #edf4fb);
+  font-size: .72rem;
+  font-weight: 700;
+}
+.dashboard-chart-card { padding: 1.05rem 1.15rem .9rem; }
+.dashboard-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.dashboard-chart-heading h3 { margin: .2rem 0 0; color: #2a3e54; font-size: .98rem; font-weight: 700; }
+.dashboard-chart-heading > .bi { color: var(--dashboard-role-accent, var(--cfrms-primary)); font-size: 1.1rem; }
+.dashboard-chart-wrap { position: relative; height: 255px; margin-top: .6rem; }
+.dashboard-chart-wrap-compact { height: 255px; }
+.dashboard-chart-wrap-facilities { height: 225px; }
+.dashboard-chart-empty { display: grid; height: 100%; place-items: center; margin: 0; padding: 1rem; color: #8290a0; font-size: .82rem; text-align: center; }
+html[data-theme="dark"] .dashboard-analytics-heading h2,
+html[data-theme="dark"] .dashboard-chart-heading h3 { color: #e4edf5; }
+html[data-theme="dark"] .dashboard-analytics-heading p,
+html[data-theme="dark"] .dashboard-chart-empty { color: #9aabba; }
+html[data-theme="dark"] .dashboard-chart-card { background: #1d2d3b; }
+
 @media (max-width: 575.98px) {
   .role-dashboard .cfrms-page-header h1 { gap: .55rem; }
   .role-dashboard .dashboard-role-icon { width: 36px; height: 36px; flex-basis: 36px; }
+  .dashboard-analytics-heading { align-items: flex-start; flex-direction: column; }
+  .dashboard-analytics-scope { align-self: flex-start; }
+  .dashboard-chart-card { padding: .9rem; }
 }
