@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -6,18 +8,34 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 
-from accounts.decorators import requester_required, staff_or_admin_required
+from accounts.decorators import reservation_reviewer_required, requester_required
+from accounts.models import User
 from facilities.models import Facility
 from notifications.models import Notification
 from .forms import ReservationForm
 from .models import Reservation
 
 
+def _get_reviewable_reservation(request, pk):
+    """Return a student request while preventing reviewers from reviewing their own record."""
+    reviewable = Reservation.objects.select_related(
+        'requested_by', 'facility'
+    ).exclude(requested_by__user_type=User.UserType.FACULTY)
+    reservation = get_object_or_404(
+        reviewable,
+        pk=pk,
+        requested_by__role=User.Role.REQUESTER,
+    )
+    if reservation.requested_by_id == request.user.pk:
+        raise PermissionDenied('You cannot review your own reservation.')
+    return reservation
+
+
 @login_required
 @requester_required
 def my_reservations_view(request):
     """
-    Shows only the reservations submitted by the currently authenticated user.
+    Shows only a student's own reservations.
     Hard-filtered to request.user to prevent IDOR vulnerabilities.
 
     Why requested_by=request.user and NOT /reservations/user/<user_id>/:
@@ -50,6 +68,7 @@ def my_reservations_view(request):
         total=Count('pk'),
         pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
         approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        completed=Count('pk', filter=Q(status=Reservation.Status.COMPLETED)),
         rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
@@ -67,10 +86,10 @@ def my_reservations_view(request):
 
 
 @login_required
-@staff_or_admin_required
+@reservation_reviewer_required
 def pending_reservations_view(request):
     """
-    Shows pending reservation requests awaiting review by Staff or Admin.
+    Lets staff, faculty, and admins review requests across all workflow states.
 
     select_related('facility', 'requested_by') prevents N+1 queries when
     the template iterates over reservations and accesses related objects.
@@ -80,25 +99,46 @@ def pending_reservations_view(request):
     Backend-Frontend Contract:
     - Template: 'reservations/pending_reservations.html'
     - Context:
-        - reservations: QuerySet[Reservation] where status==PENDING,
-                        ordered by reservation_date, start_time (oldest first),
-                        with facility and requested_by pre-fetched
+        - reservations: Status-filtered QuerySet[Reservation], ordered by date/time,
+                        with facility and requester pre-fetched
     """
-    reservations = Reservation.objects.filter(
-        status=Reservation.Status.PENDING
-    ).select_related('facility', 'requested_by').order_by('reservation_date', 'start_time')
+    student_requests = Reservation.objects.filter(
+        requested_by__role=User.Role.REQUESTER
+    ).exclude(requested_by__user_type=User.UserType.FACULTY)
+    reservations = student_requests.select_related('facility', 'requested_by')
+    status = request.GET.get('status', Reservation.Status.PENDING)
+    if status and status != 'ALL' and status in dict(Reservation.Status.choices):
+        reservations = reservations.filter(status=status)
+    elif status != 'ALL':
+        status = Reservation.Status.PENDING
+        reservations = reservations.filter(status=status)
+    reservations = reservations.order_by('reservation_date', 'start_time')
+
+    summary = student_requests.aggregate(
+        total=Count('pk'),
+        pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
+        approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        completed=Count('pk', filter=Q(status=Reservation.Status.COMPLETED)),
+        rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
+    )
 
     context = {
         'reservations': reservations,
+        'summary': summary,
+        'statuses': Reservation.Status.choices,
+        'selected_status': status,
     }
     return render(request, 'reservations/pending_reservations.html', context)
 
 
 @login_required
-@staff_or_admin_required
+@reservation_reviewer_required
 def reservation_report_view(request):
     """Display a filterable report of existing reservation records."""
-    reservations = Reservation.objects.select_related(
+    reservations = Reservation.objects.filter(
+        requested_by__role=User.Role.REQUESTER
+    ).exclude(requested_by__user_type=User.UserType.FACULTY).select_related(
         'requested_by', 'facility'
     )
 
@@ -125,6 +165,7 @@ def reservation_report_view(request):
         total=Count('pk'),
         pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
         approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
+        completed=Count('pk', filter=Q(status=Reservation.Status.COMPLETED)),
         rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
@@ -202,13 +243,12 @@ def reservation_detail_view(request, pk):
     Displays the full details of a single reservation.
 
     Object-level authorization:
-    - REQUESTER: may only view their OWN reservations.
+    - STUDENT REQUESTER: may only view their OWN reservations.
       Attempting to access another user's reservation returns 403,
       not 404, because 404 would obscure a security boundary with a
       "not found" lie. The resource exists; the requester simply has
       no right to it.
-    - STAFF: may view any reservation (needed for operational workflow).
-    - ADMIN: may view any reservation.
+    - STAFF, FACULTY, and ADMIN: may view any reservation to review the workflow.
 
     Backend-Frontend Contract:
     - Template: 'reservations/reservation_detail.html'
@@ -217,19 +257,35 @@ def reservation_detail_view(request, pk):
                        requested_by pre-fetched
     """
     reservation = get_object_or_404(
-        Reservation.objects.select_related('facility', 'requested_by', 'reviewed_by'),
+        Reservation.objects.select_related(
+            'facility', 'requested_by', 'reviewed_by', 'completed_by'
+        ),
         pk=pk,
     )
 
     user = request.user
-    if user.is_requester_role:
+    if user.is_reservation_reviewer:
+        if reservation.requested_by_id == user.pk or not reservation.requested_by.is_student_role:
+            raise PermissionDenied('Reviewers can only access student reservation requests.')
+    elif user.is_student_role:
         if reservation.requested_by != user:
             raise PermissionDenied(
                 'You do not have permission to view this reservation.'
             )
-    # STAFF and ADMIN reach here without restriction
+    else:
+        raise PermissionDenied('You do not have permission to view this reservation.')
 
-    return render(request, 'reservations/reservation_detail.html', {'reservation': reservation})
+    scheduled_end = timezone.make_aware(
+        datetime.combine(reservation.reservation_date, reservation.end_time),
+        timezone.get_current_timezone(),
+    )
+    return render(request, 'reservations/reservation_detail.html', {
+        'reservation': reservation,
+        'can_complete': (
+            reservation.status == Reservation.Status.APPROVED
+            and timezone.now() >= scheduled_end
+        ),
+    })
 
 
 @login_required
@@ -248,7 +304,7 @@ def cancel_reservation_view(request, pk):
 
     Lifecycle:
     - Delegates to Reservation.cancel(), which owns the transition rules:
-      REJECTED and CANCELLED reservations cannot be cancelled again.
+      DECLINED, CANCELLED, and COMPLETED reservations cannot be cancelled again.
     - The view does not duplicate or override that logic.
 
     Backend-Frontend Contract:
@@ -276,10 +332,10 @@ def cancel_reservation_view(request, pk):
 
 
 @login_required
-@staff_or_admin_required
+@reservation_reviewer_required
 def approve_reservation_view(request, pk):
     """
-    Allows STAFF or ADMIN to approve a PENDING reservation.
+    Allows STAFF, FACULTY, or ADMIN to approve a PENDING reservation.
 
     POST-only: GET requests return 405 Method Not Allowed.
 
@@ -301,7 +357,7 @@ def approve_reservation_view(request, pk):
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
 
-    reservation = get_object_or_404(Reservation, pk=pk)
+    reservation = _get_reviewable_reservation(request, pk)
 
     try:
         with transaction.atomic():
@@ -330,10 +386,10 @@ def approve_reservation_view(request, pk):
 
 
 @login_required
-@staff_or_admin_required
+@reservation_reviewer_required
 def reject_reservation_view(request, pk):
     """
-    Allows STAFF or ADMIN to reject a PENDING reservation with a mandatory reason.
+    Allows STAFF, FACULTY, or ADMIN to decline a PENDING reservation with a mandatory reason.
 
     POST-only: GET requests return 405 Method Not Allowed.
 
@@ -356,11 +412,11 @@ def reject_reservation_view(request, pk):
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
 
-    reservation = get_object_or_404(Reservation, pk=pk)
+    reservation = _get_reviewable_reservation(request, pk)
     reason = request.POST.get('reason', '').strip()
 
     if not reason:
-        messages.error(request, 'A rejection reason is required.')
+        messages.error(request, 'A decline reason is required.')
         return redirect('reservations:reservation_detail', pk=pk)
 
     try:
@@ -376,15 +432,42 @@ def reject_reservation_view(request, pk):
                 reservation=reservation,
                 message=(
                     f'Your reservation for {reservation.facility.name} on '
-                    f'{reservation.reservation_date} was rejected. '
+                    f'{reservation.reservation_date} was declined. '
                     f'Reason: {reservation.rejection_reason}'
                 ),
             )
         messages.success(
             request,
-            f'Reservation #{reservation.pk} has been rejected.'
+            f'Reservation #{reservation.pk} has been declined.'
         )
         return redirect('reservations:pending_reservations')
     except ValidationError as exc:
         messages.error(request, exc.message)
         return redirect('reservations:reservation_detail', pk=pk)
+
+
+@login_required
+@reservation_reviewer_required
+def complete_reservation_view(request, pk):
+    """Mark an approved reservation completed after its scheduled end time."""
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    reservation = _get_reviewable_reservation(request, pk)
+    try:
+        with transaction.atomic():
+            reservation.complete(reviewer=request.user)
+            Notification.objects.create(
+                recipient=reservation.requested_by,
+                reservation=reservation,
+                message=(
+                    f'Your reservation for {reservation.facility.name} on '
+                    f'{reservation.reservation_date} has been marked completed.'
+                ),
+            )
+        messages.success(request, f'Reservation #{reservation.pk} has been completed.')
+    except ValidationError as exc:
+        messages.error(request, exc.message)
+
+    return redirect('reservations:reservation_detail', pk=pk)

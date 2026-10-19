@@ -38,7 +38,20 @@ def staff_or_admin_required(view_func):
     return role_required(User.Role.STAFF, User.Role.ADMIN)(view_func)
 
 
-def requester_required(view_func):
-    """Decorator ensuring only users with CFRMS REQUESTER role can access the view."""
+def reservation_reviewer_required(view_func):
+    """Allow only staff, faculty, or admin accounts to review reservations."""
     from .models import User
-    return role_required(User.Role.REQUESTER)(view_func)
+    return role_required(User.Role.STAFF, User.Role.FACULTY, User.Role.ADMIN)(view_func)
+
+
+def requester_required(view_func):
+    """Decorator ensuring only student requesters can use requester workflows."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        if not request.user.is_student_role:
+            raise PermissionDenied('Only student requesters can access this resource.')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view

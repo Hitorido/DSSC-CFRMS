@@ -16,7 +16,7 @@ class UserAdmin(BaseUserAdmin):
 
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ('CFRMS Information', {
-            'fields': ('role', 'user_type', 'department'),
+            'fields': ('role', 'department'),
         }),
     )
 
@@ -31,4 +31,5 @@ class UserAdmin(BaseUserAdmin):
         'is_active',
     )
     list_filter = ('role', 'user_type', 'is_active', 'is_staff')
+    readonly_fields = ('user_type',)
     search_fields = ('username', 'first_name', 'last_name', 'email', 'department')

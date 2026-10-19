@@ -43,14 +43,14 @@
   </div>
 </form>
 
-{% if user.is_requester_role or user.is_admin_role %}
+{% if user.is_student_role or user.is_admin_role %}
 <div class="page-actions mb-3">
   {% if user.is_admin_role %}
   <a href="{% url 'facilities:facility_create' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Add Facility
   </a>
   {% endif %}
-  {% if user.is_requester_role %}
+  {% if user.is_student_role %}
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Reserve a Facility
   </a>
@@ -101,7 +101,7 @@
           <th scope="col">Location</th>
           <th scope="col" class="text-center">Capacity</th>
           <th scope="col" class="text-center">Status</th>
-          {% if user.is_requester_role %}
+          {% if user.is_student_role %}
           <th scope="col" class="text-center">Action</th>
           {% endif %}
         </tr>
@@ -146,7 +146,7 @@
               </span>
             {% endif %}
           </td>
-          {% if user.is_requester_role %}
+          {% if user.is_student_role %}
           <td class="text-center">
             {% if facility.status == 'AVAILABLE' %}
             <a href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}"

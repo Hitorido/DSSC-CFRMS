@@ -10,7 +10,7 @@ class RegisterForm(UserCreationForm):
 
     Exposes only fields appropriate for self-service signup.
     role is intentionally excluded — new accounts are always REQUESTER.
-    Role elevation is an Admin action done through /admin/.
+    Role elevation is an Admin action done through the CFRMS Admin Console.
     """
 
     first_name = forms.CharField(
@@ -27,11 +27,6 @@ class RegisterForm(UserCreationForm):
         required=False,
         help_text='Optional but recommended.',
     )
-    user_type = forms.ChoiceField(
-        choices=[('', '— Select type —')] + list(User.UserType.choices),
-        required=False,
-        help_text='Select Student or Faculty if applicable.',
-    )
     department = forms.CharField(
         max_length=100,
         required=False,
@@ -45,7 +40,6 @@ class RegisterForm(UserCreationForm):
             'first_name',
             'last_name',
             'email',
-            'user_type',
             'department',
             'password1',
             'password2',
@@ -55,6 +49,7 @@ class RegisterForm(UserCreationForm):
         user = super().save(commit=False)
         # Ensure all new self-registered accounts are REQUESTER
         user.role = User.Role.REQUESTER
+        user.user_type = User.UserType.STUDENT
         if commit:
             user.save()
         return user
@@ -71,7 +66,6 @@ class ProfileForm(forms.ModelForm):
             'last_name',
             'email',
             'phone_number',
-            'user_type',
             'department',
             'bio',
         ]
@@ -85,7 +79,6 @@ class ProfileForm(forms.ModelForm):
             'profile_image': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
         }
         labels = {
-            'user_type': 'Account type',
             'department': 'Department or course',
             'bio': 'About me',
             'profile_image': 'Profile photo',
