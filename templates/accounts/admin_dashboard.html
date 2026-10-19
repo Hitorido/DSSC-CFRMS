@@ -50,6 +50,7 @@
   </a>
   <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">
     <i class="bi bi-building me-1"></i>Facilities ({{ total_facilities }})
+    {% if facility_data_scope == 'analytics_sample' %}<span class="small">&middot; sample</span>{% endif %}
   </a>
   <a href="{% url 'facilities:facility_create' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i>Add facility

@@ -32,6 +32,15 @@ def home_view(request):
         total=Count('pk'),
         available=Count('pk', filter=Q(status=Facility.Status.AVAILABLE)),
     )
+    facility_data_scope = 'operational'
+    if not facility_summary['total'] and 'analytics' in connections.databases:
+        facility_summary = Facility.objects.using('analytics').filter(
+            is_synthetic=True,
+        ).aggregate(
+            total=Count('pk'),
+            available=Count('pk', filter=Q(status=Facility.Status.AVAILABLE)),
+        )
+        facility_data_scope = 'analytics_sample'
     user = request.user
     if user.is_reservation_reviewer:
         reservation_qs = Reservation.objects.filter(
@@ -55,9 +64,11 @@ def home_view(request):
         or user.is_unassigned_faculty_account
         or user.is_admin_role
     )
+
     context = {
         'user': user,
         'facility_summary': facility_summary,
+        'facility_data_scope': facility_data_scope,
         'total_facilities': facility_summary['total'],
         'total_reservations': reservation_summary['total'],
         'pending_reservations': reservation_summary['pending'],
@@ -156,7 +167,7 @@ def home_view(request):
         })
     elif user.is_unassigned_faculty_account:
         context.update({
-            'dashboard_title': 'Faculty',
+            'dashboard_title': 'Faculty Dashboard',
             'dashboard_subtitle': 'An administrator must assign the Faculty role before you can review reservation requests.',
             'dashboard_role': 'faculty',
         })
@@ -284,6 +295,12 @@ def admin_dashboard_view(request):
         accounts = accounts.filter(role=role_filter)
     account_page = Paginator(accounts, 20).get_page(request.GET.get('page'))
 
+    total_facilities = Facility.objects.count()
+    facility_data_scope = 'operational'
+    if not total_facilities and 'analytics' in connections.databases:
+        total_facilities = Facility.objects.using('analytics').filter(is_synthetic=True).count()
+        facility_data_scope = 'analytics_sample'
+
     context = {
         'accounts_page': account_page,
         'account_roles': User.Role.choices,
@@ -294,6 +311,7 @@ def admin_dashboard_view(request):
         'pending_reservations': Reservation.objects.filter(
             status=Reservation.Status.PENDING,
         ).count(),
-        'total_facilities': Facility.objects.count(),
+        'total_facilities': total_facilities,
+        'facility_data_scope': facility_data_scope,
     }
     return render(request, 'accounts/admin_dashboard.html', context)

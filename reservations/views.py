@@ -234,7 +234,12 @@ def create_reservation_view(request):
             initial['facility'] = int(selected_facility)
         form = ReservationForm(initial=initial)
 
-    return render(request, 'reservations/reservation_form.html', {'form': form})
+    return render(request, 'reservations/reservation_form.html', {
+        'form': form,
+        'has_bookable_facilities': Facility.objects.filter(
+            status=Facility.Status.AVAILABLE,
+        ).exists(),
+    })
 
 
 @login_required

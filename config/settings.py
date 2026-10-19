@@ -136,18 +136,17 @@ if _default_db_host not in _local_db_hosts:
 # ---------------------------------------------------------------------------
 # Optional Analytics Database (Aiven Cloud MySQL)
 # ---------------------------------------------------------------------------
-# Only activated when ANALYTICS_DB_HOST is set in the environment AND the
-# configuration passes validation. If not set or invalid, the 'analytics'
-# alias is not added to DATABASES, and local Django operation is unaffected.
+# Activated when ANALYTICS_DB_NAME is set and the configuration passes
+# validation. If ANALYTICS_DB_HOST is omitted, the analytics database reuses
+# the default database's host, port, credentials, and TLS settings while
+# connecting to the separate ANALYTICS_DB_NAME. Set ANALYTICS_DB_HOST to use
+# dedicated ANALYTICS_DB_* connection settings.
 #
-# Required .env keys for analytics:
-#   ANALYTICS_DB_NAME      — cloud database name (must differ from DB_NAME)
-#   ANALYTICS_DB_USER      — dedicated analytics MySQL user
-#   ANALYTICS_DB_PASSWORD  — analytics user password
-#   ANALYTICS_DB_HOST      — Aiven hostname (e.g., mysql-xxxx.aivencloud.com)
-#   ANALYTICS_DB_PORT      — Aiven port (default: 3306)
-#   ANALYTICS_DB_SSL_CA    — absolute path to the Aiven CA certificate file
-#                            (REQUIRED for cloud/remote hosts)
+# Required .env key:
+#   ANALYTICS_DB_NAME      — analytics database name (must differ from DB_NAME)
+# Optional dedicated connection keys (used when ANALYTICS_DB_HOST is set):
+#   ANALYTICS_DB_USER, ANALYTICS_DB_PASSWORD, ANALYTICS_DB_HOST,
+#   ANALYTICS_DB_PORT, ANALYTICS_DB_SSL_CA
 #
 # The analytics alias is READ-ONLY from Django's perspective for normal
 # operation. The synthetic data generator uses it via an explicit
@@ -173,13 +172,29 @@ def _running_tests():
 
 _LOCAL_HOSTS = {'127.0.0.1', 'localhost', '::1', ''}
 
-_analytics_host = os.getenv('ANALYTICS_DB_HOST', '')
-if _analytics_host and not _running_tests():
-    _analytics_name = os.getenv('ANALYTICS_DB_NAME', '')
-    _analytics_user = os.getenv('ANALYTICS_DB_USER', '')
-    _analytics_pass = os.getenv('ANALYTICS_DB_PASSWORD', '')
-    _analytics_ssl_ca = os.getenv('ANALYTICS_DB_SSL_CA', '')
-    _analytics_port = os.getenv('ANALYTICS_DB_PORT', '3306')
+_analytics_host_env = os.getenv('ANALYTICS_DB_HOST', '').strip()
+_analytics_name = os.getenv('ANALYTICS_DB_NAME', '').strip()
+if (_analytics_name or _analytics_host_env) and not _running_tests():
+    _reuse_default_connection = not _analytics_host_env
+    _default_db = DATABASES['default']
+    _analytics_host = _analytics_host_env or _default_db['HOST']
+    _analytics_user = (
+        _default_db['USER'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_USER', '')
+    )
+    _analytics_pass = (
+        _default_db['PASSWORD'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_PASSWORD', '')
+    )
+    _analytics_port = (
+        _default_db['PORT'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_PORT', '3306')
+    )
+    _analytics_ssl_ca = (
+        _default_db['OPTIONS'].get('ssl', {}).get('ca', '')
+        if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_SSL_CA', '') or os.getenv('DB_SSL_CA', '')
+    )
     _default_name = DATABASES.get('default', {}).get('NAME', '')
 
     _analytics_errors = []
@@ -188,9 +203,9 @@ if _analytics_host and not _running_tests():
     if not _analytics_name:
         _analytics_errors.append('ANALYTICS_DB_NAME is empty')
     if not _analytics_user:
-        _analytics_errors.append('ANALYTICS_DB_USER is empty')
+        _analytics_errors.append('database user is empty')
     if not _analytics_pass:
-        _analytics_errors.append('ANALYTICS_DB_PASSWORD is empty')
+        _analytics_errors.append('database password is empty')
 
     # 2. Prevent accidental alias overlap: analytics NAME must differ from
     #    the default NAME. Pointing both aliases at the same database would
@@ -210,10 +225,12 @@ if _analytics_host and not _running_tests():
         )
 
     if not _analytics_errors:
-        _analytics_options = {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        }
+        _analytics_options = (
+            dict(_default_db['OPTIONS']) if _reuse_default_connection else {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            }
+        )
         if _analytics_ssl_ca:
             _analytics_options['ssl'] = {'ca': _analytics_ssl_ca}
 

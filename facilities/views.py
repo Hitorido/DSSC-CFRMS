@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import connections, transaction
 from django.db.models import Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,6 +23,13 @@ def facility_list_view(request):
                       with facility_type pre-fetched via select_related
     """
     facilities = Facility.objects.select_related('facility_type').all()
+    facility_data_scope = 'operational'
+    if not facilities.exists() and 'analytics' in connections.databases:
+        sample_facilities = Facility.objects.using('analytics').filter(is_synthetic=True)
+        if sample_facilities.exists():
+            facilities = sample_facilities.select_related('facility_type')
+            facility_data_scope = 'analytics_sample'
+
     search = request.GET.get('search', '').strip()
     status = request.GET.get('status', '')
     facility_type = request.GET.get('facility_type', '')
@@ -42,10 +49,15 @@ def facility_list_view(request):
             facilities = facilities.none()
 
     facilities = facilities.order_by('name')
+    facility_types = FacilityType.objects.all()
+    if facility_data_scope == 'analytics_sample':
+        facility_types = FacilityType.objects.using('analytics').filter(is_synthetic=True)
+
     context = {
         'facilities': facilities,
         'facility_statuses': Facility.Status.choices,
-        'facility_types': FacilityType.objects.all(),
+        'facility_types': facility_types,
+        'facility_data_scope': facility_data_scope,
         'filters': {
             'search': search,
             'status': status,

@@ -71,17 +71,26 @@
 </h6>
 <div class="row g-3 mb-4 dashboard-overview">
   <div class="col-12 col-sm-6 col-xl-3">
+    {% if not user.is_staff_role %}
     <a href="{% url 'facilities:facility_list' %}" class="dashboard-metric-link">
+    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-blue"><i class="bi bi-building-check"></i></span>
         <span class="dashboard-metric-copy">
           <span class="dashboard-metric-label">Total Facilities</span>
           <strong>{{ facility_summary.total }}</strong>
-          <span class="dashboard-metric-note">{{ facility_summary.available }} available</span>
+          <span class="dashboard-metric-note">
+            {% if facility_data_scope == 'analytics_sample' %}Analytics sample data
+            {% else %}{{ facility_summary.available }} available{% endif %}
+          </span>
         </span>
+        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+        {% endif %}
       </div>
+    {% if not user.is_staff_role %}
     </a>
+    {% endif %}
   </div>
   {% if user.is_student_role %}
   <div class="col-12 col-sm-6 col-xl-3">
@@ -131,16 +140,22 @@
     </div>
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
+    {% if not user.is_staff_role %}
     <a href="{% url 'reservations:pending_reservations' %}" class="dashboard-metric-link">
+    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-amber"><i class="bi bi-inbox"></i></span>
         <span class="dashboard-metric-copy">
           <span class="dashboard-metric-label">Requests to review</span>
           <strong>{{ pending_reservation_count }}</strong>
         </span>
+        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+        {% endif %}
       </div>
+    {% if not user.is_staff_role %}
     </a>
+    {% endif %}
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
     <div class="dashboard-metric">
@@ -385,12 +400,12 @@
 </section>
 {% endif %}
 
-{% if not user.is_unassigned_faculty_account %}
+{% if not user.is_unassigned_faculty_account and not user.is_faculty_role %}
 <h6 class="dashboard-section-title">
   {% if user.is_student_role %}Student Actions
   {% elif user.is_faculty_role %}Faculty Actions
   {% elif user.is_unassigned_faculty_account %}Faculty
-  {% elif user.is_staff_role %}Staff Actions
+  {% elif user.is_staff_role %}Shortcuts
   {% elif user.is_admin_role %}Administration
   {% else %}Quick Actions{% endif %}
 </h6>
