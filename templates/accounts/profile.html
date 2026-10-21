@@ -27,7 +27,7 @@
         </div>
         <h2>{{ user.get_full_name|default:user.username }}</h2>
         <p class="profile-username">@{{ user.username }}</p>
-        <span class="badge rounded-pill profile-role-badge">{{ user.get_role_display }}</span>
+        <span class="badge rounded-pill profile-role-badge">{% if user.is_unassigned_faculty_account %}Faculty{% else %}{{ user.get_role_display }}{% endif %}</span>
         {% if user.department %}<p class="profile-summary-detail"><i class="bi bi-building me-2"></i>{{ user.department }}</p>{% endif %}
         {% if user.bio %}<p class="profile-summary-bio">{{ user.bio }}</p>{% endif %}
         <a href="{% url 'accounts:settings' %}" class="profile-settings-link"><i class="bi bi-sliders me-2"></i>Account settings</a>
@@ -85,9 +85,9 @@
             {% if form.phone_number.errors %}<div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>{% endif %}
           </div>
           <div class="col-sm-5">
-            <label class="form-label" for="{{ form.user_type.id_for_label }}">Account type</label>
-            {{ form.user_type }}
-            {% if form.user_type.errors %}<div class="invalid-feedback d-block">{{ form.user_type.errors.0 }}</div>{% endif %}
+            <label class="form-label">System role</label>
+            <div class="form-control-plaintext">{% if user.is_unassigned_faculty_account %}Faculty{% elif user.is_student_role %}Student requester{% else %}{{ user.get_role_display }}{% endif %}</div>
+            <div class="form-text">Contact an administrator if your role is incorrect.</div>
           </div>
           <div class="col-sm-7">
             <label class="form-label" for="{{ form.department.id_for_label }}">Department or course</label>

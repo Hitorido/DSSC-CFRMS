@@ -8,6 +8,7 @@
   <h1>
     {% if user.is_student_role %}<i class="bi bi-mortarboard dashboard-role-icon" aria-hidden="true"></i>
     {% elif user.is_faculty_role %}<i class="bi bi-person-badge dashboard-role-icon" aria-hidden="true"></i>
+    {% elif user.is_unassigned_faculty_account %}<i class="bi bi-person-badge dashboard-role-icon" aria-hidden="true"></i>
     {% elif user.is_staff_role %}<i class="bi bi-person-workspace dashboard-role-icon" aria-hidden="true"></i>
     {% elif user.is_admin_role %}<i class="bi bi-speedometer2 dashboard-role-icon" aria-hidden="true"></i>
     {% else %}<i class="bi bi-house-door dashboard-role-icon" aria-hidden="true"></i>{% endif %}
@@ -45,6 +46,7 @@
           <span class="badge rounded-pill dashboard-role-badge">
             {% if user.is_student_role %}Student
             {% elif user.is_faculty_role %}Faculty
+            {% elif user.is_unassigned_faculty_account %}Faculty
             {% else %}{{ user.get_role_display }}{% endif %}
           </span>
           {% if user.department %}
@@ -62,25 +64,35 @@
 <h6 class="dashboard-section-title">
   {% if user.is_student_role %}Student Overview
   {% elif user.is_faculty_role %}Faculty Overview
+  {% elif user.is_unassigned_faculty_account %}Faculty
   {% elif user.is_staff_role %}Staff Overview
   {% elif user.is_admin_role %}System Overview
   {% else %}My Overview{% endif %}
 </h6>
 <div class="row g-3 mb-4 dashboard-overview">
   <div class="col-12 col-sm-6 col-xl-3">
+    {% if not user.is_staff_role %}
     <a href="{% url 'facilities:facility_list' %}" class="dashboard-metric-link">
+    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-blue"><i class="bi bi-building-check"></i></span>
         <span class="dashboard-metric-copy">
           <span class="dashboard-metric-label">Total Facilities</span>
           <strong>{{ facility_summary.total }}</strong>
-          <span class="dashboard-metric-note">{{ facility_summary.available }} available</span>
+          <span class="dashboard-metric-note">
+            {% if facility_data_scope == 'analytics_sample' %}Analytics sample data
+            {% else %}{{ facility_summary.available }} available{% endif %}
+          </span>
         </span>
+        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+        {% endif %}
       </div>
+    {% if not user.is_staff_role %}
     </a>
+    {% endif %}
   </div>
-  {% if user.is_requester_role %}
+  {% if user.is_student_role %}
   <div class="col-12 col-sm-6 col-xl-3">
     <a href="{% url 'reservations:my_reservations' %}" class="dashboard-metric-link">
       <div class="dashboard-metric">
@@ -117,7 +129,7 @@
       </div>
     </a>
   </div>
-  {% elif user.is_staff_role %}
+  {% elif user.is_staff_role or user.is_faculty_role %}
   <div class="col-12 col-sm-6 col-xl-3">
     <div class="dashboard-metric">
       <span class="dashboard-metric-icon metric-blue"><i class="bi bi-calendar2-week"></i></span>
@@ -128,16 +140,22 @@
     </div>
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
+    {% if not user.is_staff_role %}
     <a href="{% url 'reservations:pending_reservations' %}" class="dashboard-metric-link">
+    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-amber"><i class="bi bi-inbox"></i></span>
         <span class="dashboard-metric-copy">
           <span class="dashboard-metric-label">Requests to review</span>
           <strong>{{ pending_reservation_count }}</strong>
         </span>
+        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+        {% endif %}
       </div>
+    {% if not user.is_staff_role %}
     </a>
+    {% endif %}
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
     <div class="dashboard-metric">
@@ -182,6 +200,7 @@
   {% endif %}
 </div>
 
+{% if show_dashboard_analytics %}
 <section class="dashboard-analytics mb-4" aria-labelledby="dashboardAnalyticsHeading">
   <div class="dashboard-analytics-heading">
     <div>
@@ -191,7 +210,10 @@
     </div>
     <span class="dashboard-analytics-scope">
       <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
-      {% if user.is_staff_role or user.is_admin_role %}Campus-wide data{% else %}Your reservations{% endif %}
+      {% if chart_data_scope == 'synthetic' %}Synthetic analytics sample
+      {% elif user.is_reservation_reviewer %}Campus-wide data
+      {% elif user.is_unassigned_faculty_account %}Faculty
+      {% else %}Your reservations{% endif %}
     </span>
   </div>
 
@@ -203,7 +225,9 @@
             <span class="section-eyebrow">LAST SIX MONTHS</span>
             <h3 id="monthlyChartHeading">Reservation trend</h3>
           </div>
-          <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+          <button type="button" class="dashboard-chart-info-button" data-info-dialog="monthlyChartInfo" aria-haspopup="dialog" aria-label="More information about the reservation trend" title="About this chart">
+            <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+          </button>
         </div>
         <div class="dashboard-chart-wrap">
           {% if chart_has_month_data %}
@@ -221,7 +245,9 @@
             <span class="section-eyebrow">ALL-TIME WORKFLOW</span>
             <h3 id="statusChartHeading">Reservation status</h3>
           </div>
-          <i class="bi bi-pie-chart" aria-hidden="true"></i>
+          <button type="button" class="dashboard-chart-info-button" data-info-dialog="statusChartInfo" aria-haspopup="dialog" aria-label="More information about reservation status" title="About this chart">
+            <i class="bi bi-pie-chart" aria-hidden="true"></i>
+          </button>
         </div>
         <div class="dashboard-chart-wrap dashboard-chart-wrap-compact">
           {% if chart_has_status_data %}
@@ -239,7 +265,9 @@
             <span class="section-eyebrow">LAST SIX MONTHS</span>
             <h3 id="facilityChartHeading">Most requested facilities</h3>
           </div>
-          <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+          <button type="button" class="dashboard-chart-info-button" data-info-dialog="facilityChartInfo" aria-haspopup="dialog" aria-label="More information about requested facilities" title="About this chart">
+            <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+          </button>
         </div>
         <div class="dashboard-chart-wrap dashboard-chart-wrap-facilities">
           {% if chart_has_facility_data %}
@@ -253,7 +281,87 @@
   </div>
 </section>
 
-{% if user.is_requester_role %}
+<dialog class="chart-info-dialog" id="monthlyChartInfo" aria-labelledby="monthlyChartInfoTitle">
+  <div class="chart-info-dialog-header">
+    <h2 id="monthlyChartInfoTitle">About the reservation trend</h2>
+    <button type="button" class="chart-info-close" data-close-info aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+  </div>
+  <div class="chart-info-dialog-body">
+    <p>Each point is the number of reservations scheduled in that calendar month. The chart covers the current month and the five preceding months.</p>
+    <ul>
+      <li>Reservations are grouped by their requested facility-use date, not the date the request was submitted.</li>
+      <li>Every reservation counts once, regardless of whether it is pending, approved, completed, declined, or cancelled.</li>
+      <li>Use month-to-month changes to spot shifts in campus space usage.</li>
+    </ul>
+    <div class="chart-info-dialog-chart">
+      <canvas id="monthlyInfoChart" role="img" aria-label="Reservation totals by month with values shown"></canvas>
+    </div>
+    <h3 class="chart-info-counts-heading">Monthly totals</h3>
+    <div class="chart-info-counts" aria-label="Monthly reservation totals">
+      {% for row in chart_month_rows %}
+      <div class="chart-info-count"><span>{{ row.label }}</span><strong>{{ row.total }}</strong></div>
+      {% endfor %}
+    </div>
+    <p class="mb-0"><strong>Data source:</strong> {% if chart_data_scope == 'synthetic' %}labelled synthetic analytics sample{% else %}operational reservation records{% endif %}.</p>
+  </div>
+</dialog>
+
+<dialog class="chart-info-dialog" id="statusChartInfo" aria-labelledby="statusChartInfoTitle">
+  <div class="chart-info-dialog-header">
+    <h2 id="statusChartInfoTitle">About reservation status</h2>
+    <button type="button" class="chart-info-close" data-close-info aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+  </div>
+  <div class="chart-info-dialog-body">
+    <p>Each slice shows how many reservations are currently in a workflow status. This panel lists the exact counts so you can read the values without hovering over the chart.</p>
+    <ul>
+      <li><strong>Pending:</strong> waiting for a reviewer decision.</li>
+      <li><strong>Approved:</strong> accepted and scheduled.</li>
+      <li><strong>Completed:</strong> the approved booking has taken place.</li>
+      <li><strong>Declined:</strong> a reviewer did not approve the request.</li>
+      <li><strong>Cancelled:</strong> the booking was withdrawn.</li>
+    </ul>
+    <div class="chart-info-dialog-chart chart-info-dialog-chart-compact">
+      <canvas id="statusInfoChart" role="img" aria-label="Reservation totals by status with values shown"></canvas>
+    </div>
+    <h3 class="chart-info-counts-heading">Exact totals</h3>
+    <div class="chart-info-counts" aria-label="Reservation totals by status">
+      {% for status in chart_statuses %}
+      <div class="chart-info-count"><span>{{ status.label }}</span><strong>{{ status.total }}</strong></div>
+      {% endfor %}
+    </div>
+    <p class="mb-0"><strong>Period:</strong> all records in the selected data source. <strong>Data source:</strong> {% if chart_data_scope == 'synthetic' %}labelled synthetic analytics sample{% else %}operational reservation records{% endif %}.</p>
+  </div>
+</dialog>
+
+<dialog class="chart-info-dialog" id="facilityChartInfo" aria-labelledby="facilityChartInfoTitle">
+  <div class="chart-info-dialog-header">
+    <h2 id="facilityChartInfoTitle">About most requested facilities</h2>
+    <button type="button" class="chart-info-close" data-close-info aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+  </div>
+  <div class="chart-info-dialog-body">
+    <p>Each bar counts reservations for one facility. The chart shows up to five facilities with the most requests during the current month and the five preceding months.</p>
+    <ul>
+      <li>Reservations are grouped by the facility requested and scheduled-use date.</li>
+      <li>Bars are sorted from the highest request count to the lowest.</li>
+      <li>Open this panel to read the exact count for each facility; counts represent reservation requests, not hours or capacity.</li>
+    </ul>
+    <div class="chart-info-dialog-chart chart-info-dialog-chart-facilities">
+      <canvas id="facilityInfoChart" role="img" aria-label="Most requested facilities with values shown"></canvas>
+    </div>
+    <h3 class="chart-info-counts-heading">Facility totals</h3>
+    <div class="chart-info-counts" aria-label="Reservation totals by facility">
+      {% for row in chart_facility_rows %}
+      <div class="chart-info-count"><span>{{ row.label }}</span><strong>{{ row.total }}</strong></div>
+      {% empty %}
+      <p class="mb-0 text-muted">No facility requests were recorded in this period.</p>
+      {% endfor %}
+    </div>
+    <p class="mb-0"><strong>Data source:</strong> {% if chart_data_scope == 'synthetic' %}labelled synthetic analytics sample{% else %}operational reservation records{% endif %}.</p>
+  </div>
+</dialog>
+{% endif %}
+
+{% if user.is_student_role %}
 <section class="cfrms-card upcoming-panel mb-4" aria-labelledby="upcomingHeading">
   <div class="upcoming-panel-heading">
     <div>
@@ -292,10 +400,12 @@
 </section>
 {% endif %}
 
+{% if not user.is_unassigned_faculty_account and not user.is_faculty_role %}
 <h6 class="dashboard-section-title">
   {% if user.is_student_role %}Student Actions
   {% elif user.is_faculty_role %}Faculty Actions
-  {% elif user.is_staff_role %}Staff Actions
+  {% elif user.is_unassigned_faculty_account %}Faculty
+  {% elif user.is_staff_role %}Shortcuts
   {% elif user.is_admin_role %}Administration
   {% else %}Quick Actions{% endif %}
 </h6>
@@ -320,8 +430,8 @@
     </a>
   </div>
 
-  {% if user.is_requester_role %}
-  {# Requester: create reservation #}
+{% if user.is_student_role %}
+{# Students: create and track their reservation requests #}
   <div class="col-12 col-sm-6 col-lg-4">
     <a href="{% url 'reservations:create_reservation' %}" class="text-decoration-none quick-action-link">
       <div class="stat-card h-100 quick-action-card">
@@ -331,7 +441,7 @@
         <div>
           <div class="stat-label">Reservations</div>
           <div class="stat-value" style="font-size:1rem;font-weight:600;color:#27ae60;">
-            {% if user.is_student_role %}Book a Facility{% else %}New Reservation{% endif %}
+            Book a Facility
           </div>
         </div>
         <i class="bi bi-chevron-right ms-auto text-muted"></i>
@@ -349,7 +459,7 @@
         <div>
           <div class="stat-label">My Activity</div>
           <div class="stat-value" style="font-size:1rem;font-weight:600;color:#f39c12;">
-            {% if user.is_student_role %}My Bookings{% else %}My Reservations{% endif %}
+            My Bookings
           </div>
         </div>
         <i class="bi bi-chevron-right ms-auto text-muted"></i>
@@ -358,8 +468,8 @@
   </div>
   {% endif %}
 
-  {% if user.is_staff_role or user.is_admin_role %}
-  {# Staff/Admin: pending queue #}
+  {% if user.is_reservation_reviewer %}
+  {# Staff, faculty, and admins: reservation review queue #}
   <div class="col-12 col-sm-6 col-lg-4">
     <a href="{% url 'reservations:pending_reservations' %}" class="text-decoration-none quick-action-link">
       <div class="stat-card h-100 quick-action-card">
@@ -369,7 +479,7 @@
         <div>
           <div class="stat-label">Review Queue</div>
           <div class="stat-value" style="font-size:1rem;font-weight:600;color:#f39c12;">
-            Pending Reservations
+            Review Reservation Requests
           </div>
         </div>
         <i class="bi bi-chevron-right ms-auto text-muted"></i>
@@ -393,20 +503,20 @@
     </a>
   </div>
 
-  {# Admin: Django admin panel #}
+  {# Admin: CFRMS administration page #}
   <div class="col-12 col-sm-6 col-lg-4">
-    <a href="{% url 'admin:index' %}" target="_blank" rel="noopener" class="text-decoration-none quick-action-link">
+    <a href="{% url 'accounts:admin_dashboard' %}" class="text-decoration-none quick-action-link">
       <div class="stat-card h-100 quick-action-card">
         <div class="stat-icon icon-tone-violet">
-          <i class="bi bi-gear"></i>
+          <i class="bi bi-shield-lock"></i>
         </div>
         <div>
           <div class="stat-label">Administration</div>
           <div class="stat-value" style="font-size:1rem;font-weight:600;color:#8e44ad;">
-            Admin Panel
+            Admin Console
           </div>
         </div>
-        <i class="bi bi-box-arrow-up-right ms-auto text-muted" style="font-size:.8rem;"></i>
+        <i class="bi bi-chevron-right ms-auto text-muted"></i>
       </div>
     </a>
   </div>
@@ -415,6 +525,7 @@
 </div>
 
 {# ── System info strip ───────────────────────────────────────────────────── #}
+{% endif %}
 <div class="cfrms-card">
   <div class="p-3 d-flex flex-wrap align-items-center gap-3 text-muted" style="font-size:.82rem;">
     <span><i class="bi bi-info-circle me-1"></i>
@@ -424,7 +535,7 @@
     <span><i class="bi bi-building me-1"></i>Davao del Sur State College</span>
     <span class="vr d-none d-sm-block"></span>
     <span><i class="bi bi-shield-check me-1"></i>
-      Session secured &middot; Role: <strong>{{ user.get_role_display }}</strong>
+      Session secured &middot; Role: <strong>{% if user.is_unassigned_faculty_account %}Faculty{% else %}{{ user.get_role_display }}{% endif %}</strong>
     </span>
   </div>
 </div>
@@ -433,11 +544,67 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if show_dashboard_analytics %}
 {{ chart_month_labels|json_script:"dashboard-month-labels" }}
 {{ chart_month_values|json_script:"dashboard-month-values" }}
 {{ chart_statuses|json_script:"dashboard-statuses" }}
 {{ chart_facility_labels|json_script:"dashboard-facility-labels" }}
 {{ chart_facility_values|json_script:"dashboard-facility-values" }}
+<script>
+function closeChartInfoDialog(dialog) {
+  if (!dialog || !dialog.open || dialog.classList.contains('is-closing')) return;
+
+  dialog.classList.add('is-closing');
+  var fallbackTimer;
+
+  function finishClose() {
+    dialog.removeEventListener('animationend', onExitAnimationEnd);
+    if (fallbackTimer) window.clearTimeout(fallbackTimer);
+    dialog.classList.remove('is-closing');
+    if (dialog.open) dialog.close();
+  }
+
+  function onExitAnimationEnd(event) {
+    if (event.target === dialog && event.animationName === 'chartInfoExit') finishClose();
+  }
+
+  dialog.addEventListener('animationend', onExitAnimationEnd);
+  fallbackTimer = window.setTimeout(finishClose, 260);
+}
+
+document.addEventListener('click', function (event) {
+  var openButton = event.target.closest('[data-info-dialog]');
+  if (openButton) {
+    var dialog = document.getElementById(openButton.dataset.infoDialog);
+    if (dialog && typeof dialog.showModal === 'function') {
+      dialog.classList.remove('is-closing');
+      dialog.showModal();
+      window.requestAnimationFrame(function () {
+        if (typeof window.renderChartInfoDetails === 'function') {
+          window.renderChartInfoDetails(dialog.id);
+        }
+      });
+    }
+    return;
+  }
+
+  var closeButton = event.target.closest('[data-close-info]');
+  if (closeButton) {
+    var activeDialog = closeButton.closest('dialog');
+    closeChartInfoDialog(activeDialog);
+  }
+});
+
+document.querySelectorAll('.chart-info-dialog').forEach(function (dialog) {
+  dialog.addEventListener('cancel', function (event) {
+    event.preventDefault();
+    closeChartInfoDialog(dialog);
+  });
+  dialog.addEventListener('click', function (event) {
+    if (event.target === dialog) closeChartInfoDialog(dialog);
+  });
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -454,7 +621,143 @@ document.addEventListener('DOMContentLoaded', function () {
   var facilityLabels = readDashboardData('dashboard-facility-labels');
   var facilityValues = readDashboardData('dashboard-facility-values');
   var gridColor = 'rgba(120, 138, 158, 0.18)';
-  var tickColor = getComputedStyle(document.documentElement).getPropertyValue('--cfrms-text-muted').trim() || '#738096';
+  var darkTheme = document.documentElement.dataset.theme === 'dark';
+  var tickColor = getComputedStyle(document.documentElement).getPropertyValue('--cfrms-text-muted').trim() || (darkTheme ? '#b7c5d0' : '#738096');
+
+  var detailCharts = {};
+  var detailValueLabels = {
+    id: 'cfrmsDialogValueLabels',
+    afterDatasetsDraw: function (chart) {
+      var context = chart.ctx;
+      var meta = chart.getDatasetMeta(0);
+      var values = chart.data.datasets[0].data;
+      context.save();
+      context.font = '700 12px system-ui, -apple-system, Segoe UI, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+
+      meta.data.forEach(function (element, index) {
+        var value = values[index];
+        if (value === null || value === undefined || !Number.isFinite(Number(value))) return;
+        var label = String(value);
+        var point = element.getCenterPoint();
+
+        if (chart.config.type === 'bar') {
+          context.textAlign = 'left';
+          context.fillStyle = darkTheme ? '#f4f7fa' : '#263c53';
+          context.strokeStyle = darkTheme ? 'rgba(29, 45, 59, .9)' : 'rgba(255, 255, 255, .95)';
+          context.lineWidth = 3;
+          context.strokeText(label, point.x + 8, point.y);
+          context.fillText(label, point.x + 8, point.y);
+          context.textAlign = 'center';
+          return;
+        }
+
+        if (chart.config.type === 'doughnut') {
+          if (Number(value) <= 0) return;
+          context.fillStyle = '#fff';
+          context.strokeStyle = 'rgba(25, 39, 52, .8)';
+          context.lineWidth = 3;
+          context.strokeText(label, point.x, point.y);
+          context.fillText(label, point.x, point.y);
+          return;
+        }
+
+        context.fillStyle = darkTheme ? '#f4f7fa' : '#263c53';
+        context.strokeStyle = darkTheme ? 'rgba(29, 45, 59, .9)' : 'rgba(255, 255, 255, .95)';
+        context.lineWidth = 3;
+        context.strokeText(label, point.x, point.y - 14);
+        context.fillText(label, point.x, point.y - 14);
+      });
+
+      context.restore();
+    }
+  };
+
+  window.renderChartInfoDetails = function (dialogId) {
+    var configs = {
+      monthlyChartInfo: {
+        canvasId: 'monthlyInfoChart',
+        type: 'line',
+        labels: monthLabels,
+        values: monthValues,
+        dataset: {
+          label: 'Reservations',
+          borderColor: '#2563a6',
+          backgroundColor: 'rgba(37, 99, 166, 0.12)',
+          pointBackgroundColor: '#2563a6',
+          pointRadius: 4,
+          tension: 0.32,
+          fill: true
+        }
+      },
+      statusChartInfo: {
+        canvasId: 'statusInfoChart',
+        type: 'doughnut',
+        labels: statuses.map(function (item) { return item.label; }),
+        values: statuses.map(function (item) { return item.total; }),
+        dataset: {
+          label: 'Reservations',
+          backgroundColor: ['#e6a23c', '#35a873', '#df5b61', '#8793a2', '#5577aa'],
+          borderColor: 'transparent',
+          hoverOffset: 5
+        }
+      },
+      facilityChartInfo: {
+        canvasId: 'facilityInfoChart',
+        type: 'bar',
+        labels: facilityLabels,
+        values: facilityValues,
+        dataset: {
+          label: 'Reservations',
+          backgroundColor: '#4f8a73',
+          borderRadius: 6,
+          maxBarThickness: 30
+        }
+      }
+    };
+    var config = configs[dialogId];
+    if (!config) return;
+
+    if (detailCharts[dialogId]) {
+      detailCharts[dialogId].resize();
+      return;
+    }
+
+    var canvas = document.getElementById(config.canvasId);
+    if (!canvas) return;
+    var dataset = Object.assign({}, config.dataset, { data: config.values });
+    var options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    };
+    if (config.type === 'line') {
+      options.scales = {
+        x: { grid: { display: false }, ticks: { color: tickColor } },
+        y: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } }
+      };
+    } else if (config.type === 'doughnut') {
+      options.cutout = '55%';
+      options.plugins.legend = {
+        position: 'bottom',
+        labels: { usePointStyle: true, padding: 14, color: tickColor }
+      };
+    } else {
+      options.indexAxis = 'y';
+      options.scales = {
+        x: { beginAtZero: true, grace: '18%', ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
+        y: { grid: { display: false }, ticks: { color: tickColor } }
+      };
+    }
+
+    detailCharts[dialogId] = new Chart(canvas, {
+      type: config.type,
+      data: { labels: config.labels, datasets: [dataset] },
+      options: options,
+      plugins: [detailValueLabels]
+    });
+  };
 
   var monthlyCanvas = document.getElementById('monthlyReservationsChart');
   if (monthlyCanvas) {
@@ -529,7 +832,7 @@ document.addEventListener('DOMContentLoaded', function () {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
+          x: { beginAtZero: true, grace: '15%', ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
           y: { grid: { display: false }, ticks: { color: tickColor } }
         }
       }
@@ -537,4 +840,5 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 </script>
+{% endif %}
 {% endblock %}

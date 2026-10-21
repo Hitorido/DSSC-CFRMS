@@ -26,7 +26,7 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
   >
-  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}?v=16">
+  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}?v=18">
 </head>
 <body>
 
@@ -139,6 +139,7 @@
       {# ── User type + Department row ────────────────────────────────── #}
       <div class="row g-3 mb-3">
         <div class="col-sm-5">
+          {% comment %}
           <label for="{{ form.user_type.id_for_label }}" class="form-label">
             <i class="bi bi-person-badge me-1"></i>Type
           </label>
@@ -152,6 +153,10 @@
           {% if form.user_type.errors %}
             <div class="invalid-feedback">{{ form.user_type.errors.0 }}</div>
           {% endif %}
+          {% endcomment %}
+          <label class="form-label"><i class="bi bi-person-badge me-1"></i>Account type</label>
+          <div class="form-control-plaintext cfrms-account-type">Student requester</div>
+          <div class="form-text">Faculty reviewer accounts are assigned by an administrator.</div>
         </div>
         <div class="col-sm-7">
           <label for="{{ form.department.id_for_label }}" class="form-label">

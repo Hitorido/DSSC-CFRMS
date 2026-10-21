@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -15,7 +17,8 @@ class Reservation(models.Model):
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
         APPROVED = 'APPROVED', 'Approved'
-        REJECTED = 'REJECTED', 'Rejected'
+        COMPLETED = 'COMPLETED', 'Completed'
+        REJECTED = 'REJECTED', 'Declined'
         CANCELLED = 'CANCELLED', 'Cancelled'
 
     # The statuses that physically hold/block a time slot on the facility schedule
@@ -53,25 +56,35 @@ class Reservation(models.Model):
         help_text='Current reservation lifecycle status.',
     )
 
-    # Reviewer tracking (optional until staff/admin action)
+    # Reviewer tracking (optional until staff/faculty/admin action)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name='reviewed_reservations',
-        help_text='Staff or Admin who approved or rejected this reservation.',
+        help_text='Staff, faculty, or Admin who approved or declined this reservation.',
     )
     reviewed_at = models.DateTimeField(
         blank=True,
         null=True,
-        help_text='Timestamp when the reservation was approved or rejected.',
+        help_text='Timestamp when the reservation was approved or declined.',
     )
     rejection_reason = models.TextField(
         blank=True,
         default='',
-        help_text='Explanation provided by staff/admin if rejected.',
+        help_text='Explanation provided by a reviewer when the request is declined.',
     )
+
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='completed_reservations',
+        help_text='Staff, faculty, or Admin who marked this reservation completed.',
+    )
+    completed_at = models.DateTimeField(blank=True, null=True)
 
     is_synthetic = models.BooleanField(
         default=False,
@@ -130,6 +143,10 @@ class Reservation(models.Model):
     @property
     def is_cancelled(self):
         return self.status == self.Status.CANCELLED
+
+    @property
+    def is_completed(self):
+        return self.status == self.Status.COMPLETED
 
     def clean(self):
         """
@@ -254,11 +271,28 @@ class Reservation(models.Model):
         self.rejection_reason = reason.strip()
         self.save()
 
+    def complete(self, reviewer):
+        """Mark an approved reservation completed after its scheduled end."""
+        if self.status != self.Status.APPROVED:
+            raise ValidationError('Only approved reservations can be marked completed.')
+
+        scheduled_end = timezone.make_aware(
+            datetime.combine(self.reservation_date, self.end_time),
+            timezone.get_current_timezone(),
+        )
+        if timezone.now() < scheduled_end:
+            raise ValidationError('A reservation can only be completed after its scheduled end time.')
+
+        self.status = self.Status.COMPLETED
+        self.completed_by = reviewer
+        self.completed_at = timezone.now()
+        self.save()
+
     def cancel(self):
         """
         Cancel an existing reservation (PENDING or APPROVED), releasing the time slot.
         """
-        if self.status in [self.Status.REJECTED, self.Status.CANCELLED]:
-            raise ValidationError('Cannot cancel a reservation that is already rejected or cancelled.')
+        if self.status in [self.Status.REJECTED, self.Status.CANCELLED, self.Status.COMPLETED]:
+            raise ValidationError('Cannot cancel a reservation that is already declined, cancelled, or completed.')
         self.status = self.Status.CANCELLED
         self.save()

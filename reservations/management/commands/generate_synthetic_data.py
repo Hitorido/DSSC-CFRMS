@@ -402,7 +402,7 @@ class Command(BaseCommand):
             users.append(User(
                 username=username, first_name=fake.first_name(), last_name=fake.last_name(),
                 email=f'{username}@dssc.local', role=User.Role.REQUESTER,
-                user_type=rng.choice(['STUDENT', 'FACULTY']),
+                user_type=User.UserType.STUDENT,
                 department=rng.choice(departments), is_synthetic=True,
             ))
         for i in range(n_staff):

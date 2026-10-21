@@ -13,6 +13,16 @@
   </nav>
 </div>
 
+{% if facility_data_scope == 'analytics_sample' %}
+<div class="alert alert-info d-flex align-items-start gap-2" role="status">
+  <i class="bi bi-info-circle-fill mt-1" aria-hidden="true"></i>
+  <div>
+    <strong>Analytics sample facilities</strong><br>
+    These demo records are shown because no live facilities are registered in the reservation database. They are for analytics display only and cannot be booked.
+  </div>
+</div>
+{% endif %}
+
 <form method="get" class="row g-2 align-items-end mb-3">
   <div class="col-md-4">
     <label for="facility-search" class="form-label">Search</label>
@@ -43,14 +53,14 @@
   </div>
 </form>
 
-{% if user.is_requester_role or user.is_admin_role %}
+{% if user.is_student_role or user.is_admin_role %}
 <div class="page-actions mb-3">
   {% if user.is_admin_role %}
   <a href="{% url 'facilities:facility_create' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Add Facility
   </a>
   {% endif %}
-  {% if user.is_requester_role %}
+  {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Reserve a Facility
   </a>
@@ -101,7 +111,7 @@
           <th scope="col">Location</th>
           <th scope="col" class="text-center">Capacity</th>
           <th scope="col" class="text-center">Status</th>
-          {% if user.is_requester_role %}
+          {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
           <th scope="col" class="text-center">Action</th>
           {% endif %}
         </tr>
@@ -132,7 +142,9 @@
             <i class="bi bi-people text-muted me-1"></i>{{ facility.capacity }}
           </td>
           <td class="text-center">
-            {% if facility.status == 'AVAILABLE' %}
+            {% if facility_data_scope == 'analytics_sample' %}
+              <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3">Sample only</span>
+            {% elif facility.status == 'AVAILABLE' %}
               <span class="badge badge-available rounded-pill px-3">
                 <i class="bi bi-check-circle me-1"></i>Available
               </span>
@@ -146,7 +158,7 @@
               </span>
             {% endif %}
           </td>
-          {% if user.is_requester_role %}
+          {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
           <td class="text-center">
             {% if facility.status == 'AVAILABLE' %}
             <a href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}"

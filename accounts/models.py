@@ -11,14 +11,15 @@ class User(AbstractUser):
 
     Separation of concerns:
     - `role`: Controls system-level authorization (permissions in CFRMS).
-    - `user_type`: Identifies requester category (classification, not authorization).
+    - `user_type`: Legacy requester classification. Permissions come from `role`.
     - `department`: College / unit affiliation (e.g., BSIS, Education, Administration).
     """
 
     class Role(models.TextChoices):
         ADMIN = 'ADMIN', 'Admin'
         STAFF = 'STAFF', 'Staff'
-        REQUESTER = 'REQUESTER', 'Requester'
+        FACULTY = 'FACULTY', 'Faculty'
+        REQUESTER = 'REQUESTER', 'Student Requester'
 
     class UserType(models.TextChoices):
         STUDENT = 'STUDENT', 'Student'
@@ -36,7 +37,7 @@ class User(AbstractUser):
         choices=UserType.choices,
         blank=True,
         default='',
-        help_text='Requester classification (Student or Faculty). Only applicable for requesters.',
+        help_text='Legacy requester classification. Account permissions are controlled by role.',
     )
 
     department = models.CharField(
@@ -101,11 +102,21 @@ class User(AbstractUser):
 
     @property
     def is_student_role(self):
-        """Student-facing requester classification; permissions remain requester-scoped."""
-        return self.is_requester_role and self.user_type == self.UserType.STUDENT
+        """Student requesters can submit and manage their own reservations."""
+        return self.is_requester_role and self.user_type != self.UserType.FACULTY
 
     @property
     def is_faculty_role(self):
-        """Faculty-facing requester classification; permissions remain requester-scoped."""
+        """Faculty is a reviewer role, assigned by an administrator."""
+        return self.role == self.Role.FACULTY
+
+    @property
+    def is_unassigned_faculty_account(self):
+        """Legacy self-identified faculty accounts awaiting admin role assignment."""
         return self.is_requester_role and self.user_type == self.UserType.FACULTY
+
+    @property
+    def is_reservation_reviewer(self):
+        """Staff, faculty, and admins can review student reservation requests."""
+        return self.role in (self.Role.STAFF, self.Role.FACULTY, self.Role.ADMIN)
 

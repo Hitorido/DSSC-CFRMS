@@ -8,9 +8,9 @@
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-      {% if user.is_staff_role or user.is_admin_role %}
+      {% if user.is_reservation_reviewer %}
         <li class="breadcrumb-item">
-          <a href="{% url 'reservations:pending_reservations' %}">Pending Reservations</a>
+          <a href="{% url 'reservations:pending_reservations' %}">Reservation Requests</a>
         </li>
       {% else %}
         <li class="breadcrumb-item">
@@ -37,17 +37,22 @@
           <span class="badge badge-pending rounded-pill px-3">
             <i class="bi bi-hourglass-split me-1"></i>Pending
           </span>
-          <small class="d-block mt-1">Your reservation is waiting for review.</small>
+          <small class="d-block mt-1">This reservation is waiting for review.</small>
         {% elif reservation.status == 'APPROVED' %}
           <span class="badge badge-approved rounded-pill px-3">
             <i class="bi bi-check-circle me-1"></i>Approved
           </span>
-          <small class="d-block mt-1">Your reservation has been approved.</small>
+          <small class="d-block mt-1">This reservation has been approved.</small>
+        {% elif reservation.status == 'COMPLETED' %}
+          <span class="badge badge-approved rounded-pill px-3">
+            <i class="bi bi-check2-all me-1"></i>Completed
+          </span>
+          <small class="d-block mt-1">This reservation has been completed.</small>
         {% elif reservation.status == 'REJECTED' %}
           <span class="badge badge-rejected rounded-pill px-3">
-            <i class="bi bi-x-circle me-1"></i>Rejected
+            <i class="bi bi-x-circle me-1"></i>Declined
           </span>
-          <small class="d-block mt-1">Your reservation was rejected. Please check the rejection reason below.</small>
+          <small class="d-block mt-1">Your reservation was declined. Please check the reason below.</small>
         {% else %}
           <span class="badge badge-cancelled rounded-pill px-3">
             <i class="bi bi-slash-circle me-1"></i>Cancelled
@@ -139,7 +144,7 @@
           <i class="bi bi-chat-left-text text-danger flex-shrink-0 mt-1"></i>
           <div>
             <div class="fw-semibold text-danger mb-1" style="font-size:.85rem;">
-              Rejection Reason
+              Decline Reason
             </div>
             <p class="mb-0" style="font-size:.9rem;">{{ reservation.rejection_reason }}</p>
           </div>
@@ -149,8 +154,18 @@
     </div>
     {% endif %}
 
+    {% if reservation.completed_by %}
+    <div class="cfrms-card">
+      <div class="card-header-bar"><i class="bi bi-check2-all me-2"></i>Completion Information</div>
+      <div class="p-4" style="font-size:.9rem;">
+        <div><span class="text-muted">Completed by</span> <strong>{{ reservation.completed_by.get_full_name|default:reservation.completed_by.username }}</strong></div>
+        {% if reservation.completed_at %}<div class="text-muted mt-1">{{ reservation.completed_at|date:"M d, Y" }} at {{ reservation.completed_at|time:"H:i" }}</div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {# ── REQUESTER: Cancel action ─────────────────────────────────────── #}
-    {% if user.is_requester_role and reservation.requested_by == user %}
+    {% if user.is_student_role and reservation.requested_by == user %}
       {% if reservation.is_pending or reservation.is_approved %}
       <div class="cfrms-card">
         <div class="card-header-bar" style="background:#7f8c8d;">
@@ -174,7 +189,7 @@
     {% endif %}
 
     {# ── STAFF / ADMIN: Approve + Reject actions ──────────────────────── #}
-    {% if user.is_staff_role or user.is_admin_role %}
+    {% if user.is_reservation_reviewer %}
       {% if reservation.is_pending %}
 
       {# Approve #}
@@ -200,7 +215,7 @@
       {# Reject #}
       <div class="cfrms-card">
         <div class="card-header-bar" style="background:#c0392b;">
-          <i class="bi bi-x-circle me-2"></i>Reject Reservation
+          <i class="bi bi-x-circle me-2"></i>Decline Reservation
         </div>
         <div class="p-4">
           <form method="post"
@@ -208,7 +223,7 @@
             {% csrf_token %}
             <div class="mb-3">
               <label for="reason" class="form-label fw-semibold" style="font-size:.875rem;">
-                Rejection Reason <span class="text-danger">*</span>
+                Decline Reason <span class="text-danger">*</span>
               </label>
               <textarea name="reason"
                         id="reason"
@@ -219,13 +234,32 @@
               <div class="form-text">Required — the requester will see this message.</div>
             </div>
             <button type="submit" class="btn btn-danger">
-              <i class="bi bi-x-circle me-1"></i>Reject
+              <i class="bi bi-x-circle me-1"></i>Decline
             </button>
           </form>
         </div>
       </div>
 
       {% endif %}{# end is_pending #}
+
+      {% if reservation.is_approved and can_complete %}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#237247;">
+          <i class="bi bi-check2-all me-2"></i>Complete Reservation
+        </div>
+        <div class="p-4">
+          <p class="text-muted mb-3" style="font-size:.875rem;">
+            Confirm that the approved reservation took place.
+          </p>
+          <form method="post" action="{% url 'reservations:complete_reservation' reservation.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check2-all me-1"></i>Mark Completed
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
     {% endif %}{# end staff/admin #}
 
   </div>{# end right column #}

@@ -15,4 +15,5 @@ urlpatterns = [
     path('pending/', views.pending_reservations_view, name='pending_reservations'),
     path('<int:pk>/approve/', views.approve_reservation_view, name='approve_reservation'),
     path('<int:pk>/reject/', views.reject_reservation_view, name='reject_reservation'),
+    path('<int:pk>/complete/', views.complete_reservation_view, name='complete_reservation'),
 ]

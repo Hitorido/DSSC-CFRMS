@@ -25,6 +25,13 @@
       </div>
       <div class="p-4">
 
+        {% if not has_bookable_facilities %}
+        <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
+          <i class="bi bi-exclamation-circle-fill mt-1" aria-hidden="true"></i>
+          <div>No live facilities are registered in the reservation database yet. Analytics sample facilities are for display only; an administrator must add campus facilities before students can book.</div>
+        </div>
+        {% endif %}
+
         {# Non-field errors (e.g. time conflict from model.clean) #}
         {% if form.non_field_errors %}
         <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
@@ -133,7 +140,7 @@
 
           {# ── Actions ──────────────────────────────────────────── #}
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-cfrms-primary">
+            <button type="submit" class="btn btn-cfrms-primary" {% if not has_bookable_facilities %}disabled{% endif %}>
               <i class="bi bi-send me-1"></i>Submit Request
             </button>
             <a href="{% url 'reservations:my_reservations' %}"
