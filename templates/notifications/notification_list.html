@@ -33,9 +33,9 @@
   </div>
 
   {% if notifications %}
-  <ul class="list-group list-group-flush">
+  <ul class="list-group list-group-flush notifications-list">
     {% for notif in notifications %}
-    <li class="list-group-item d-flex align-items-start gap-3 py-3
+    <li class="list-group-item notification-item d-flex align-items-start gap-3 py-3
                {% if not notif.is_read %}bg-light fw-semibold{% endif %}">
 
       {# Unread indicator dot #}
@@ -48,8 +48,8 @@
       </span>
 
       <div class="flex-grow-1">
-        <div>{{ notif.message }}</div>
-        <div class="text-muted mt-1" style="font-size:.8rem;">
+        <div class="notification-message">{{ notif.message }}</div>
+        <div class="notification-meta text-muted mt-1" style="font-size:.8rem;">
           <i class="bi bi-clock me-1"></i>{{ notif.created_at|date:"M d, Y H:i" }}
 
           {# Link to reservation if it still exists and the user can access it #}
