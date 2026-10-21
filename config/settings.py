@@ -105,14 +105,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
+# PRIMARY DATABASE: Aiven Cloud MySQL
+# All application data stored in Aiven cloud database
+DATABASES = { 
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'dssc_cfrms_db'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
+        'NAME': os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
+        'USER': os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
+        'PASSWORD': os.getenv('ANALYTICS_DB_PASSWORD', ''),
+        'HOST': os.getenv('ANALYTICS_DB_HOST', 'localhost'),
+        'PORT': int(os.getenv('ANALYTICS_DB_PORT', '3306')),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -120,18 +122,21 @@ DATABASES = {
     }
 }
 
-# The primary application database may also be hosted remotely. Configure TLS
-# with DB_SSL_CA; reuse the analytics CA setting when the same Aiven service is
-# promoted to the primary database.
-_default_db_host = DATABASES['default']['HOST']
-_local_db_hosts = {'127.0.0.1', 'localhost', '::1', ''}
-_default_db_ssl_ca = os.getenv('DB_SSL_CA', '') or os.getenv('ANALYTICS_DB_SSL_CA', '')
-if _default_db_host not in _local_db_hosts:
-    if not _default_db_ssl_ca:
+# Configure TLS/SSL for Aiven cloud database
+_aiven_db_host = DATABASES['default']['HOST']
+_aiven_db_ssl_ca = os.getenv('ANALYTICS_DB_SSL_CA', '')
+
+if not _aiven_db_host:
+    raise ImproperlyConfigured(
+        'ANALYTICS_DB_HOST is required. Set in .env with Aiven hostname.'
+    )
+
+if _aiven_db_ssl_ca:
+    if not os.path.exists(_aiven_db_ssl_ca):
         raise ImproperlyConfigured(
-            'DB_SSL_CA is required when DB_HOST points to a remote database.'
+            f'ANALYTICS_DB_SSL_CA file not found: {_aiven_db_ssl_ca}'
         )
-    DATABASES['default']['OPTIONS']['ssl'] = {'ca': _default_db_ssl_ca}
+    DATABASES['default']['OPTIONS']['ssl'] = {'ca': _aiven_db_ssl_ca}
 
 # ---------------------------------------------------------------------------
 # Optional Analytics Database (Aiven Cloud MySQL)

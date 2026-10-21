@@ -331,50 +331,69 @@ mysql --host=mysql-xxxx.i.aivencloud.com \
 
 **Cause:** DNS resolution failure — machine cannot resolve Aiven hostname
 
-**Solution:**
+**Solution — Step-by-Step:**
 
 ```bash
-# 1. Verify hostname is correct in .env
+# STEP 1: Verify hostname is correct in .env
 grep ANALYTICS_DB_HOST .env
 # Should show: ANALYTICS_DB_HOST=mysql-xxxx.i.aivencloud.com
 
-# 2. Test DNS resolution
+# STEP 2: Test basic internet connection
+ping google.com
+# If fails: No internet connection at all
+
+# STEP 3: Test DNS resolution to Aiven
 ping mysql-xxxx.i.aivencloud.com
-# If fails: DNS resolution issue
+# If fails: DNS cannot resolve Aiven hostname
+# If passes: Network is OK, check next steps
 
-# 3. Check network connectivity
-# - Verify internet connection
-# - Check firewall rules (may block port 16332)
-# - If on corporate network: check with IT about Aiven IP whitelisting
-# - If on VPN: disconnect and try again
-# - Try on mobile hotspot to rule out network-specific issues
+# STEP 4: Check if on corporate network or VPN
+# Try:
+# a) Disconnect VPN if connected
+# b) Try from different network (mobile hotspot, home WiFi, coffee shop)
+# c) Ask IT if they whitelist Aiven IPs
 
-# 4. Test with specific IP (if DNS fails)
-# Contact team lead for IP address, try:
-mysql --host=<aiven-ip-address> \
-      --port=16332 \
-      --user=avnadmin \
-      --password \
-      --ssl-ca=/path/to/ca.pem \
-      dssc_analytics -e "SELECT 1"
+# STEP 5: Verify firewall allows port 16332
+# Most networks block random ports. Check:
+# - Windows Firewall
+# - Corporate proxy/firewall
+# - ISP blocks
+# Try: telnet mysql-xxxx.i.aivencloud.com 16332
 
-# 5. Verify ca.pem certificate path is correct
+# STEP 6: Verify ca.pem certificate exists and is readable
 ls -la /path/to/ca.pem
-# File should exist and be readable
+# File should exist and be at least 1KB
+# If missing: download from Aiven console
 
-# 6. Try with verbose output
+# STEP 7: Test with Django after connection works
 python manage.py shell
 >>> from django.db import connections
 >>> conn = connections['analytics']
->>> import pymysql.cursors
->>> conn.ensure_connection()  # Shows detailed error if fails
+>>> conn.ensure_connection()  # Should succeed now
 ```
 
-**If still failing:**
-- Check with team lead if Aiven service is running
-- Request new ca.pem certificate
-- Try connecting from a different network (coffee shop, home, different computer)
-- Contact Aiven support if service appears down
+**Troubleshooting Decision Tree:**
+
+```
+Can reach google.com?
+├─ NO → Fix your internet connection
+└─ YES → Can reach Aiven hostname?
+    ├─ NO (DNS fails) → DNS issue:
+    │   ├─ On corporate network? → Ask IT about Aiven whitelisting
+    │   ├─ On VPN? → Disconnect and try again
+    │   └─ Try mobile hotspot to test
+    └─ YES (DNS works) → Port/firewall issue:
+        ├─ Check Windows Firewall rules
+        ├─ Check corporate firewall (ask IT)
+        ├─ Check port 16332 is accessible
+        └─ Verify ca.pem path is correct
+```
+
+**If still failing after all steps:**
+1. Check Aiven console (https://console.aiven.io) — verify service is running
+2. Contact team lead — may need to update ca.pem or credentials
+3. Try from completely different network/computer to isolate issue
+4. Contact Aiven support if service appears down
 
 ---
 
@@ -406,6 +425,43 @@ python manage.py shell
 > conn = connections['analytics']
 > conn.cursor().execute("SHOW TABLES")
 ```
+
+### Issue 7: Analytics Dashboard Shows "No Data Available"
+
+**Cause:** User account doesn't have ADMIN role
+
+**Symptoms:**
+- Cloud database has 5,000+ records
+- Django queries show data correctly
+- But dashboard shows "No reservations recorded" or empty charts
+
+**Solution:**
+
+Analytics endpoints require `ADMIN` role. Check your user:
+
+```bash
+python manage.py shell
+```
+
+```python
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+# Check your user
+user = User.objects.filter(username='YOUR_USERNAME').first()
+print(f"Username: {user.username}")
+print(f"Role: {user.role}")
+
+# If role is not 'ADMIN', update it
+if user.role != User.Role.ADMIN:
+    user.role = User.Role.ADMIN
+    user.save()
+    print(f"Updated role to ADMIN")
+```
+
+Then **refresh the dashboard** — data should now appear.
+
+**For collaborators:** Create admin users with `role=ADMIN` so they can view analytics.
 
 ---
 
