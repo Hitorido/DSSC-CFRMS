@@ -28,7 +28,7 @@
         {% if not has_bookable_facilities %}
         <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
           <i class="bi bi-exclamation-circle-fill mt-1" aria-hidden="true"></i>
-          <div>No live facilities are registered in the reservation database yet. Analytics sample facilities are for display only; an administrator must add campus facilities before students can book.</div>
+          <div>There are no facilities currently available for student booking. Ask an administrator to add a facility or mark an existing facility as available.</div>
         </div>
         {% endif %}
 
@@ -55,7 +55,8 @@
             <select name="{{ form.facility.html_name }}"
                     id="{{ form.facility.id_for_label }}"
                     class="form-select{% if form.facility.errors %} is-invalid{% endif %}"
-                    required>
+                    required{% if not has_bookable_facilities %} disabled{% endif %}>
+              {% if has_bookable_facilities %}
               <option value="">— Select a facility —</option>
               {% for value, label in form.facility.field.choices %}
                 {% if value %}
@@ -65,6 +66,9 @@
                 </option>
                 {% endif %}
               {% endfor %}
+              {% else %}
+              <option value="">No available facilities</option>
+              {% endif %}
             </select>
             {% if form.facility.errors %}
               <div class="invalid-feedback">{{ form.facility.errors.0 }}</div>

@@ -212,8 +212,16 @@ def create_reservation_view(request):
     - Context:
         - form: ReservationForm (bound on POST with errors, unbound on GET)
     """
+    bookable_facilities = Facility.objects.using('default').filter(
+        status=Facility.Status.AVAILABLE,
+    )
+    has_bookable_facilities = bookable_facilities.exists()
+
     if request.method == 'POST':
-        form = ReservationForm(request.POST)
+        form = ReservationForm(
+            request.POST,
+            facility_queryset=bookable_facilities,
+        )
         if form.is_valid():
             reservation = form.save(commit=False)
             reservation.requested_by = request.user
@@ -233,13 +241,14 @@ def create_reservation_view(request):
         selected_facility = request.GET.get('facility', '')
         if selected_facility.isdecimal() and len(selected_facility) <= 18:
             initial['facility'] = int(selected_facility)
-        form = ReservationForm(initial=initial)
+        form = ReservationForm(
+            initial=initial,
+            facility_queryset=bookable_facilities,
+        )
 
     return render(request, 'reservations/reservation_form.html', {
         'form': form,
-        'has_bookable_facilities': Facility.objects.filter(
-            status=Facility.Status.AVAILABLE,
-        ).exists(),
+        'has_bookable_facilities': has_bookable_facilities,
     })
 
 

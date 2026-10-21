@@ -106,15 +106,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 # PRIMARY DATABASE: Aiven Cloud MySQL
-# All application data stored in Aiven cloud database
+# Prefer the application's DB_* settings. ANALYTICS_DB_* remain as fallbacks
+# for existing .env files that use the analytics connection for the primary DB.
 DATABASES = { 
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
-        'USER': os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
-        'PASSWORD': os.getenv('ANALYTICS_DB_PASSWORD', ''),
-        'HOST': os.getenv('ANALYTICS_DB_HOST', 'localhost'),
-        'PORT': int(os.getenv('ANALYTICS_DB_PORT', '3306')),
+        'NAME': os.getenv('DB_NAME') or os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
+        'USER': os.getenv('DB_USER') or os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
+        'PASSWORD': os.getenv('DB_PASSWORD') or os.getenv('ANALYTICS_DB_PASSWORD', ''),
+        'HOST': (
+            os.getenv('DB_HOST', '').strip()
+            or os.getenv('ANALYTICS_DB_HOST', '').strip()
+        ),
+        'PORT': int(os.getenv('DB_PORT') or os.getenv('ANALYTICS_DB_PORT', '3306')),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -124,11 +128,14 @@ DATABASES = {
 
 # Configure TLS/SSL for Aiven cloud database
 _aiven_db_host = DATABASES['default']['HOST']
-_aiven_db_ssl_ca = os.getenv('ANALYTICS_DB_SSL_CA', '')
+_aiven_db_ssl_ca = (
+    os.getenv('DB_SSL_CA', '').strip()
+    or os.getenv('ANALYTICS_DB_SSL_CA', '').strip()
+)
 
 if not _aiven_db_host:
     raise ImproperlyConfigured(
-        'ANALYTICS_DB_HOST is required. Set in .env with Aiven hostname.'
+        'Set DB_HOST in .env with the Aiven hostname.'
     )
 
 if _aiven_db_ssl_ca:

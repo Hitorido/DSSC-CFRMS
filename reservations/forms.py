@@ -1,4 +1,5 @@
 from django import forms
+from facilities.models import Facility
 from .models import Reservation
 
 
@@ -13,6 +14,20 @@ class ReservationForm(forms.ModelForm):
     requested_by is assigned in the view from request.user, never
     from form data, preventing IDOR/ownership forgery.
     """
+
+    def __init__(self, *args, facility_queryset=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Reservation.facility is stored in the primary database, so the
+        # selectable facilities must come from that same database. Assign the
+        # queryset per form instance so current records and status are always
+        # used for both rendering and POST validation.
+        if facility_queryset is None:
+            facility_queryset = Facility.objects.using('default').filter(
+                status=Facility.Status.AVAILABLE,
+            )
+        self.fields['facility'].queryset = facility_queryset.select_related(
+            'facility_type',
+        ).order_by('name')
 
     class Meta:
         model = Reservation

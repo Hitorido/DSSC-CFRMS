@@ -953,6 +953,10 @@ html[data-theme="dark"] .cfrms-page-header .breadcrumb, html[data-theme="dark"] 
 html[data-theme="dark"] .breadcrumb-item + .breadcrumb-item::before { color: #66798b; }
 html[data-theme="dark"] .cfrms-card, html[data-theme="dark"] .stat-card { color: #dce6ef; border-color: #293b4d; background: #182735; box-shadow: var(--cfrms-shadow); }
 html[data-theme="dark"] .cfrms-card .card-header-bar { color: #f4f7fa; background: linear-gradient(110deg, #1c5279, #24658e); }
+html[data-theme="dark"] .cfrms-card dl > dd { color: #edf4fa !important; }
+html[data-theme="dark"] .notifications-list .notification-item { color: #eaf2f8; background-color: #1b2d3c; border-color: #34495b; }
+html[data-theme="dark"] .notifications-list .notification-message { color: #edf4fa; }
+html[data-theme="dark"] .notifications-list .notification-meta { color: #a9bac8 !important; }
 html[data-theme="dark"] .btn-cfrms-primary { color: #fff; background: linear-gradient(110deg, #205b83, #2876a4); }
 html[data-theme="dark"] .btn-cfrms-primary:hover { color: #fff; background: linear-gradient(110deg, #286d99, #3288b9); }
 html[data-theme="dark"] .home-welcome { background: linear-gradient(115deg, #182735 42%, #1a2c3c); }
@@ -975,6 +979,9 @@ html[data-theme="dark"] .upcoming-empty strong { color: #d5e1eb; }
 html[data-theme="dark"] .cfrms-table { --bs-table-color: #d7e2eb; --bs-table-bg: transparent; --bs-table-border-color: #2a3b4c; --bs-table-hover-color: #e5eef5; --bs-table-hover-bg: #203244; }
 html[data-theme="dark"] .cfrms-table thead th { color: #a9bac8; border-color: #2b3e50; background: #1b2d3c; }
 html[data-theme="dark"] .cfrms-table tbody td { color: #d1dde7; border-color: #293a4a; }
+html[data-theme="dark"] .admin-account-table { --bs-table-color: #d7e2eb; --bs-table-bg: #182735; --bs-table-border-color: #2a3b4c; --bs-table-accent-bg: transparent; --bs-table-hover-color: #e5eef5; --bs-table-hover-bg: #203244; color: var(--bs-table-color); }
+html[data-theme="dark"] .admin-account-table thead.table-light { --bs-table-color: #e1ebf3; --bs-table-bg: #1b2d3c; --bs-table-border-color: #2b3e50; --bs-table-accent-bg: transparent; }
+html[data-theme="dark"] .admin-account-table tbody td { color: #d1dde7; border-color: #293a4a; }
 html[data-theme="dark"] .cfrms-table tbody tr:hover { --bs-table-bg: #203244; }
 html[data-theme="dark"] .cfrms-table .text-muted, html[data-theme="dark"] .text-muted { color: #9aaaba !important; }
 html[data-theme="dark"] .text-dark { color: #e1eaf2 !important; }
