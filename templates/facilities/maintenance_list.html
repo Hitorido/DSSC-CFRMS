@@ -23,11 +23,34 @@
   <div class="card-header-bar d-flex align-items-center justify-content-between">
     <span><i class="bi bi-list-check me-2"></i>All Maintenance Records</span>
     <span class="badge bg-light text-dark fw-normal">
-      {{ maintenance_records|length }} record{{ maintenance_records|length|pluralize }}
+      {{ paginator.count }} record{{ paginator.count|pluralize }}
     </span>
   </div>
 
-  {% if maintenance_records %}
+  <form method="get" class="list-toolbar">
+    <div class="list-search">
+      <label for="maintenanceSearch" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="maintenanceSearch" name="search"
+               value="{{ filters.search }}" placeholder="Facility, title, or date (YYYY-MM-DD)"
+               autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label for="maintenanceStatus" class="form-label">Status</label>
+      <select id="maintenanceStatus" name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in maintenance_statuses %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'facilities:maintenance_list' %}" class="btn btn-outline-secondary">Clear</a>
+  </form>
+
+  {% if page_obj.object_list %}
   <div class="table-responsive">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
@@ -87,14 +110,20 @@
       </tbody>
     </table>
   </div>
+  {% include "includes/list_pagination.html" with range_select_id="maintenancePageRange" %}
 
   {% else %}
   <div class="p-5 text-center text-muted">
     <i class="bi bi-tools" style="font-size:3rem;opacity:.35;"></i>
+    {% if filters.search or filters.status %}
+    <p class="mt-3 mb-1">No records match your search criteria.</p>
+    <a href="{% url 'facilities:maintenance_list' %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
+    {% else %}
     <p class="mt-3 mb-1">No maintenance records yet.</p>
     <a href="{% url 'facilities:maintenance_create' %}" class="btn btn-cfrms-primary btn-sm mt-2">
       <i class="bi bi-plus-circle me-1"></i>Schedule first maintenance
     </a>
+    {% endif %}
   </div>
   {% endif %}
 

@@ -1,78 +1,107 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Reservation Report</title>
-</head>
-<body>
-    <h1>Reservation Report</h1>
-    <a href="{% url 'home' %}">Back to Home</a>
+{% extends "base.html" %}
 
-    <form method="get">
-        <label for="start_date">Start Date</label>
-        <input type="date" id="start_date" name="start_date" value="{{ filters.start_date }}">
+{% block title %}Reservation Report{% endblock %}
 
-        <label for="end_date">End Date</label>
-        <input type="date" id="end_date" name="end_date" value="{{ filters.end_date }}">
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-clipboard-data me-2"></i>Reservation Report</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Reservation Report</li>
+    </ol>
+  </nav>
+</div>
 
-        <label for="status">Status</label>
-        <select id="status" name="status">
-            <option value="">All statuses</option>
-            {% for value, label in statuses %}
-                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
+<div class="row g-3 mb-4" aria-label="Reservation totals">
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Total</span><strong class="d-block fs-4">{{ summary.total }}</strong></div></div>
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Pending</span><strong class="d-block fs-4">{{ summary.pending }}</strong></div></div>
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Approved</span><strong class="d-block fs-4">{{ summary.approved }}</strong></div></div>
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Completed</span><strong class="d-block fs-4">{{ summary.completed }}</strong></div></div>
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Declined</span><strong class="d-block fs-4">{{ summary.rejected }}</strong></div></div>
+  <div class="col-6 col-md-4 col-xl"><div class="cfrms-card p-3"><span class="text-muted small">Cancelled</span><strong class="d-block fs-4">{{ summary.cancelled }}</strong></div></div>
+</div>
 
-        <label for="facility">Facility</label>
-        <select id="facility" name="facility">
-            <option value="">All facilities</option>
-            {% for facility in facilities %}
-                <option value="{{ facility.pk }}" {% if filters.facility == facility.pk|stringformat:"s" %}selected{% endif %}>{{ facility.name }}</option>
-            {% endfor %}
-        </select>
+<div class="cfrms-card">
+  <div class="card-header-bar">
+    <span><i class="bi bi-funnel me-2"></i>Filtered Reservations</span>
+  </div>
 
-        <button type="submit">Filter</button>
-        <a href="{% url 'reservations:reservation_report' %}">Clear filters</a>
-    </form>
+  <form method="get" class="list-toolbar">
+    <div class="list-search">
+      <label for="reportSearch" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="reportSearch" name="search"
+               value="{{ filters.search }}" placeholder="ID, facility, requester, or purpose"
+               autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label for="start_date" class="form-label">Start date</label>
+      <input type="date" id="start_date" name="start_date" class="form-control" value="{{ filters.start_date }}">
+    </div>
+    <div>
+      <label for="end_date" class="form-label">End date</label>
+      <input type="date" id="end_date" name="end_date" class="form-control" value="{{ filters.end_date }}">
+    </div>
+    <div>
+      <label for="status" class="form-label">Status</label>
+      <select id="status" name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in statuses %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="facility" class="form-label">Facility</label>
+      <select id="facility" name="facility" class="form-select">
+        <option value="">All facilities</option>
+        {% for facility in facilities %}
+        <option value="{{ facility.pk }}" {% if filters.facility == facility.pk|stringformat:"s" %}selected{% endif %}>{{ facility.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'reservations:reservation_report' %}" class="btn btn-outline-secondary">Clear</a>
+  </form>
 
-    <section aria-label="Reservation totals">
-        <p>Total: {{ summary.total }}</p>
-        <p>Pending: {{ summary.pending }}</p>
-        <p>Approved: {{ summary.approved }}</p>
-        <p>Completed: {{ summary.completed }}</p>
-        <p>Declined: {{ summary.rejected }}</p>
-        <p>Cancelled: {{ summary.cancelled }}</p>
-    </section>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Facility</th>
-                <th>Requester</th>
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th>Status</th>
-                <th>Purpose</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for reservation in reservations %}
-                <tr>
-                    <td>{{ reservation.reservation_date }}</td>
-                    <td>{{ reservation.facility.name }}</td>
-                    <td>{{ reservation.requested_by.get_full_name|default:reservation.requested_by.username }}</td>
-                    <td>{{ reservation.start_time|time:"H:i" }}</td>
-                    <td>{{ reservation.end_time|time:"H:i" }}</td>
-                    <td>{{ reservation.get_status_display }}</td>
-                    <td>{{ reservation.purpose }}</td>
-                </tr>
-            {% empty %}
-                <tr>
-                    <td colspan="7">No reservations match these filters.</td>
-                </tr>
-            {% endfor %}
-        </tbody>
+  {% if page_obj.object_list %}
+  <div class="table-responsive">
+    <table class="table table-hover cfrms-table mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Facility</th>
+          <th scope="col">Requester</th>
+          <th scope="col">Start</th>
+          <th scope="col">End</th>
+          <th scope="col">Status</th>
+          <th scope="col">Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reservation in reservations %}
+        <tr>
+          <td class="text-nowrap">{{ reservation.reservation_date|date:"M d, Y" }}</td>
+          <td>{{ reservation.facility.name }}</td>
+          <td>{{ reservation.requested_by.get_full_name|default:reservation.requested_by.username }}</td>
+          <td>{{ reservation.start_time|time:"H:i" }}</td>
+          <td>{{ reservation.end_time|time:"H:i" }}</td>
+          <td>{{ reservation.get_status_display }}</td>
+          <td>{{ reservation.purpose|truncatechars:60 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
     </table>
-</body>
-</html>
+  </div>
+  {% include "includes/list_pagination.html" with range_select_id="reportPageRange" %}
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-clipboard-x" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-0">No records match your search criteria.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

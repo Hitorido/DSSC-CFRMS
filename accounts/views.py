@@ -3,13 +3,13 @@ from datetime import date
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.db import connections
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from config.list_utils import filter_query_string, paginate_queryset
 from facilities.models import Facility
 from reservations.models import Reservation
 
@@ -293,7 +293,8 @@ def admin_dashboard_view(request):
         )
     if role_filter in dict(User.Role.choices):
         accounts = accounts.filter(role=role_filter)
-    account_page = Paginator(accounts, 20).get_page(request.GET.get('page'))
+
+    pagination = paginate_queryset(accounts, request.GET.get('page'))
 
     total_facilities = Facility.objects.count()
     facility_data_scope = 'operational'
@@ -302,9 +303,10 @@ def admin_dashboard_view(request):
         facility_data_scope = 'analytics_sample'
 
     context = {
-        'accounts_page': account_page,
+        'accounts_page': pagination['page_obj'],
         'account_roles': User.Role.choices,
         'filters': {'search': search, 'role': role_filter},
+        'filter_query': filter_query_string(request),
         'total_accounts': User.objects.count(),
         'active_accounts': User.objects.filter(is_active=True).count(),
         'admin_accounts': User.objects.filter(role=User.Role.ADMIN).count(),
@@ -313,5 +315,6 @@ def admin_dashboard_view(request):
         ).count(),
         'total_facilities': total_facilities,
         'facility_data_scope': facility_data_scope,
+        **pagination,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
