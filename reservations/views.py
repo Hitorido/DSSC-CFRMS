@@ -11,6 +11,7 @@ from django.utils.dateparse import parse_date
 
 from accounts.decorators import reservation_reviewer_required, requester_required
 from accounts.models import User
+from config.list_utils import build_search_q, filter_query_string, paginate_queryset
 from facilities.models import Facility
 from notifications.models import Notification
 from .forms import ReservationForm
@@ -47,9 +48,8 @@ def my_reservations_view(request):
     Backend-Frontend Contract:
     - Template: 'reservations/my_reservations.html'
     - Context:
-        - reservations: QuerySet[Reservation] filtered to request.user,
-                        ordered by -reservation_date, -start_time,
-                        with facility pre-fetched via select_related
+        - reservations: current page of Reservation rows for request.user
+        - page_obj / paginator / page_range_choices: pagination metadata
     """
     reservations = Reservation.objects.filter(
         requested_by=request.user
@@ -57,15 +57,28 @@ def my_reservations_view(request):
 
     status = request.GET.get('status', '')
     reservation_date = request.GET.get('date', '')
+    search = request.GET.get('search', '').strip()
+
     if status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
     parsed_date = parse_date(reservation_date) if reservation_date else None
     if parsed_date:
         reservations = reservations.filter(reservation_date=parsed_date)
+    if search:
+        reservations = reservations.filter(
+            build_search_q(
+                search,
+                ['facility__name', 'facility__location', 'purpose'],
+                date_fields=['reservation_date'],
+            )
+        )
 
     reservations = reservations.order_by('-reservation_date', '-start_time')
 
-    reservation_summary = reservations.aggregate(
+    # Summary counts ignore the text/date search so status chips stay meaningful,
+    # but respect the status filter already applied above when aggregating.
+    summary_qs = Reservation.objects.filter(requested_by=request.user)
+    reservation_summary = summary_qs.aggregate(
         total=Count('pk'),
         pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
         approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
@@ -74,14 +87,18 @@ def my_reservations_view(request):
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
 
+    pagination = paginate_queryset(reservations, request.GET.get('page'))
     context = {
-        'reservations': reservations,
+        'reservations': pagination['page_obj'],
         'reservation_summary': reservation_summary,
         'statuses': Reservation.Status.choices,
         'filters': {
             'status': status,
             'date': reservation_date,
+            'search': search,
         },
+        'filter_query': filter_query_string(request),
+        **pagination,
     }
     return render(request, 'reservations/my_reservations.html', context)
 
@@ -100,19 +117,39 @@ def pending_reservations_view(request):
     Backend-Frontend Contract:
     - Template: 'reservations/pending_reservations.html'
     - Context:
-        - reservations: Status-filtered QuerySet[Reservation], ordered by date/time,
-                        with facility and requester pre-fetched
+        - reservations: current page of status/search-filtered requests
+        - page_obj / paginator / page_range_choices: pagination metadata
     """
     student_requests = Reservation.objects.filter(
         requested_by__role=User.Role.REQUESTER
     ).exclude(requested_by__user_type=User.UserType.FACULTY)
     reservations = student_requests.select_related('facility', 'requested_by')
     status = request.GET.get('status', Reservation.Status.PENDING)
+    search = request.GET.get('search', '').strip()
+
     if status and status != 'ALL' and status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
     elif status != 'ALL':
         status = Reservation.Status.PENDING
         reservations = reservations.filter(status=status)
+
+    if search:
+        reservations = reservations.filter(
+            build_search_q(
+                search,
+                [
+                    'facility__name',
+                    'facility__location',
+                    'purpose',
+                    'requested_by__first_name',
+                    'requested_by__last_name',
+                    'requested_by__username',
+                    'requested_by__department',
+                ],
+                date_fields=['reservation_date'],
+            )
+        )
+
     reservations = reservations.order_by('reservation_date', 'start_time')
 
     summary = student_requests.aggregate(
@@ -124,11 +161,18 @@ def pending_reservations_view(request):
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
 
+    pagination = paginate_queryset(reservations, request.GET.get('page'))
     context = {
-        'reservations': reservations,
+        'reservations': pagination['page_obj'],
         'summary': summary,
         'statuses': Reservation.Status.choices,
         'selected_status': status,
+        'filters': {
+            'status': status,
+            'search': search,
+        },
+        'filter_query': filter_query_string(request),
+        **pagination,
     }
     return render(request, 'reservations/pending_reservations.html', context)
 
@@ -147,6 +191,7 @@ def reservation_report_view(request):
     end_date = request.GET.get('end_date', '')
     status = request.GET.get('status', '')
     facility_id = request.GET.get('facility', '')
+    search = request.GET.get('search', '').strip()
 
     parsed_start_date = parse_date(start_date) if start_date else None
     parsed_end_date = parse_date(end_date) if end_date else None
@@ -154,13 +199,31 @@ def reservation_report_view(request):
         reservations = reservations.filter(reservation_date__gte=parsed_start_date)
     if parsed_end_date:
         reservations = reservations.filter(reservation_date__lte=parsed_end_date)
-    if status:
+    if status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
+    elif status:
+        status = ''
     if facility_id:
         try:
             reservations = reservations.filter(facility_id=int(facility_id))
         except ValueError:
-            pass
+            facility_id = ''
+    if search:
+        reservations = reservations.filter(
+            build_search_q(
+                search,
+                [
+                    'facility__name',
+                    'purpose',
+                    'requested_by__first_name',
+                    'requested_by__last_name',
+                    'requested_by__username',
+                ],
+                date_fields=['reservation_date'],
+            )
+        )
+
+    reservations = reservations.order_by('-reservation_date', '-start_time')
 
     summary = reservations.aggregate(
         total=Count('pk'),
@@ -171,17 +234,21 @@ def reservation_report_view(request):
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
 
+    pagination = paginate_queryset(reservations, request.GET.get('page'))
     context = {
-        'reservations': reservations,
-        'facilities': Facility.objects.all(),
+        'reservations': pagination['page_obj'],
+        'facilities': Facility.objects.all().order_by('name'),
         'statuses': Reservation.Status.choices,
         'filters': {
             'start_date': start_date,
             'end_date': end_date,
             'status': status,
             'facility': facility_id,
+            'search': search,
         },
         'summary': summary,
+        'filter_query': filter_query_string(request),
+        **pagination,
     }
     return render(request, 'reservations/reservation_report.html', context)
 

@@ -7,6 +7,7 @@ from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import admin_required, staff_or_admin_required
+from config.list_utils import build_search_q, filter_query_string, paginate_queryset
 from .forms import FacilityCreateForm, FacilityMaintenanceForm
 from .models import Facility, FacilityMaintenance, FacilityType
 
@@ -53,8 +54,9 @@ def facility_list_view(request):
     if facility_data_scope == 'analytics_sample':
         facility_types = FacilityType.objects.using('analytics').filter(is_synthetic=True)
 
+    pagination = paginate_queryset(facilities, request.GET.get('page'))
     context = {
-        'facilities': facilities,
+        'facilities': pagination['page_obj'],
         'facility_statuses': Facility.Status.choices,
         'facility_types': facility_types,
         'facility_data_scope': facility_data_scope,
@@ -63,6 +65,8 @@ def facility_list_view(request):
             'status': status,
             'facility_type': facility_type,
         },
+        'filter_query': filter_query_string(request),
+        **pagination,
     }
     return render(request, 'facilities/facility_list.html', context)
 
@@ -95,16 +99,38 @@ def maintenance_list_view(request):
     Backend-Frontend Contract:
     - Template: 'facilities/maintenance_list.html'
     - Context:
-        - maintenance_records: QuerySet[FacilityMaintenance] with facility
-                               pre-fetched, all statuses visible
+        - maintenance_records: current page of FacilityMaintenance rows
+        - page_obj / paginator / page_range_choices: pagination metadata
     """
     maintenance_records = (
         FacilityMaintenance.objects
         .select_related('facility', 'created_by')
         .order_by('-maintenance_date', '-start_time')
     )
+
+    search = request.GET.get('search', '').strip()
+    status = request.GET.get('status', '')
+    if search:
+        maintenance_records = maintenance_records.filter(
+            build_search_q(
+                search,
+                ['facility__name', 'facility__location', 'title'],
+                date_fields=['maintenance_date'],
+            )
+        )
+    if status in dict(FacilityMaintenance.Status.choices):
+        maintenance_records = maintenance_records.filter(status=status)
+
+    pagination = paginate_queryset(maintenance_records, request.GET.get('page'))
     return render(request, 'facilities/maintenance_list.html', {
-        'maintenance_records': maintenance_records,
+        'maintenance_records': pagination['page_obj'],
+        'maintenance_statuses': FacilityMaintenance.Status.choices,
+        'filters': {
+            'search': search,
+            'status': status,
+        },
+        'filter_query': filter_query_string(request),
+        **pagination,
     })
 
 

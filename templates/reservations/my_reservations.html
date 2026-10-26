@@ -13,27 +13,6 @@
   </nav>
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-  <div class="col-md-4">
-    <label for="reservation-status" class="form-label">Status</label>
-    <select id="reservation-status" name="status" class="form-select">
-      <option value="">All statuses</option>
-      {% for value, label in statuses %}
-      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-4">
-    <label for="reservation-date" class="form-label">Date</label>
-    <input id="reservation-date" name="date" type="date" class="form-control"
-           value="{{ filters.date }}">
-  </div>
-  <div class="col-md-4 d-flex gap-2">
-    <button type="submit" class="btn btn-outline-primary">Filter</button>
-    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary">Clear</a>
-  </div>
-</form>
-
 <div class="page-actions mb-3">
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> New Reservation
@@ -45,42 +24,67 @@
   <div class="card-header-bar d-flex align-items-center justify-content-between">
     <span><i class="bi bi-list-check me-2"></i>Your Reservation Requests</span>
     <span class="badge bg-light text-dark fw-normal">
-      <span id="reservationVisibleCount">{{ reservation_summary.total }} record{{ reservation_summary.total|pluralize }}</span>
+      {{ reservation_summary.total }} total
     </span>
   </div>
 
-  {% if reservations %}
-  <div class="reservation-toolbar">
-    <div class="reservation-filter-group" role="group" aria-label="Filter reservations by status">
-      <button type="button" class="reservation-filter active" data-reservation-filter="all" aria-pressed="true">
-        All <span>{{ reservation_summary.total }}</span>
-      </button>
-      <button type="button" class="reservation-filter" data-reservation-filter="PENDING" aria-pressed="false">
-        Pending <span>{{ reservation_summary.pending }}</span>
-      </button>
-      <button type="button" class="reservation-filter" data-reservation-filter="APPROVED" aria-pressed="false">
-        Approved <span>{{ reservation_summary.approved }}</span>
-      </button>
-      <button type="button" class="reservation-filter" data-reservation-filter="COMPLETED" aria-pressed="false">
-        Completed <span>{{ reservation_summary.completed }}</span>
-      </button>
-      <button type="button" class="reservation-filter" data-reservation-filter="REJECTED" aria-pressed="false">
-        Declined <span>{{ reservation_summary.rejected }}</span>
-      </button>
-      <button type="button" class="reservation-filter" data-reservation-filter="CANCELLED" aria-pressed="false">
-        Cancelled <span>{{ reservation_summary.cancelled }}</span>
-      </button>
+  <form method="get" class="list-toolbar">
+    <div class="list-search">
+      <label for="reservationSearch" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="reservationSearch" name="search"
+               value="{{ filters.search }}" placeholder="ID, facility, purpose, or date"
+               autocomplete="off">
+      </div>
     </div>
-    <label class="reservation-search input-group" for="reservationSearch">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="search" class="form-control" id="reservationSearch"
-             placeholder="Search facility or purpose" autocomplete="off">
-    </label>
+    <div>
+      <label for="reservation-status" class="form-label">Status</label>
+      <select id="reservation-status" name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in statuses %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="reservation-date" class="form-label">Date</label>
+      <input id="reservation-date" name="date" type="date" class="form-control"
+             value="{{ filters.date }}">
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary">Clear</a>
+  </form>
+
+  <div class="p-3 border-bottom d-flex flex-wrap gap-2" aria-label="Quick status filters">
+    <a class="btn btn-sm {% if not filters.status %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?{% if filters.search %}search={{ filters.search|urlencode }}&amp;{% endif %}{% if filters.date %}date={{ filters.date|urlencode }}{% endif %}">
+      All <span class="badge text-bg-light">{{ reservation_summary.total }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'PENDING' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=PENDING{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Pending <span class="badge text-bg-light">{{ reservation_summary.pending }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'APPROVED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=APPROVED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Approved <span class="badge text-bg-light">{{ reservation_summary.approved }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'COMPLETED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=COMPLETED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Completed <span class="badge text-bg-light">{{ reservation_summary.completed }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'REJECTED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=REJECTED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Declined <span class="badge text-bg-light">{{ reservation_summary.rejected }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'CANCELLED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=CANCELLED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Cancelled <span class="badge text-bg-light">{{ reservation_summary.cancelled }}</span>
+    </a>
   </div>
-  <div class="reservation-results-note" id="reservationResultNote" aria-live="polite">
-    Showing {{ reservation_summary.total }} of {{ reservation_summary.total }} requests
-  </div>
-  <div class="table-responsive" id="reservationTableWrap">
+
+  {% if page_obj.object_list %}
+  <div class="table-responsive">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
         <tr>
@@ -95,8 +99,7 @@
       </thead>
       <tbody>
         {% for res in reservations %}
-        <tr data-reservation-row data-reservation-status="{{ res.status }}"
-            data-reservation-search="{{ res.facility.name|lower }} {{ res.facility.location|lower }} {{ res.purpose|lower }} {{ res.pk }}">
+        <tr>
           <td class="text-muted" style="font-size:.8rem;">{{ res.pk }}</td>
           <td>
             <div class="fw-semibold">{{ res.facility.name }}</div>
@@ -148,13 +151,9 @@
       </tbody>
     </table>
   </div>
-  <div class="filter-empty-state" id="reservationNoResults" hidden>
-    <i class="bi bi-funnel"></i>
-    <p class="mb-1">No requests match these filters.</p>
-    <span>Choose another status or search term.</span>
-  </div>
+  {% include "includes/list_pagination.html" with range_select_id="myReservationsPageRange" %}
 
-  {% else %}
+  {% elif reservation_summary.total == 0 and not filters.search and not filters.status and not filters.date %}
   <div class="p-5 text-center text-muted">
     <i class="bi bi-calendar2-x" style="font-size:3rem;opacity:.35;"></i>
     <p class="mt-3 mb-1">You have not submitted any reservations yet.</p>
@@ -162,53 +161,13 @@
       <i class="bi bi-plus-circle me-1"></i>Create your first reservation
     </a>
   </div>
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-funnel" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-1">No records match your search criteria.</p>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
+  </div>
   {% endif %}
 
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-(function () {
-  var search = document.getElementById('reservationSearch');
-  if (!search) return;
-
-  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-reservation-row]'));
-  var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-reservation-filter]'));
-  var count = document.getElementById('reservationVisibleCount');
-  var note = document.getElementById('reservationResultNote');
-  var empty = document.getElementById('reservationNoResults');
-  var table = document.getElementById('reservationTableWrap');
-  var selectedStatus = 'all';
-
-  function filterReservations() {
-    var query = search.value.trim().toLocaleLowerCase();
-    var visible = 0;
-    rows.forEach(function (row) {
-      var matchesText = row.getAttribute('data-reservation-search').indexOf(query) !== -1;
-      var matchesStatus = selectedStatus === 'all' || row.getAttribute('data-reservation-status') === selectedStatus;
-      var show = matchesText && matchesStatus;
-      row.hidden = !show;
-      if (show) visible += 1;
-    });
-    count.textContent = visible + ' record' + (visible === 1 ? '' : 's');
-    note.textContent = 'Showing ' + visible + ' of ' + rows.length + ' requests';
-    empty.hidden = visible !== 0;
-    table.hidden = visible === 0;
-  }
-
-  buttons.forEach(function (button) {
-    button.addEventListener('click', function () {
-      selectedStatus = button.getAttribute('data-reservation-filter');
-      buttons.forEach(function (item) {
-        var active = item === button;
-        item.classList.toggle('active', active);
-        item.setAttribute('aria-pressed', active ? 'true' : 'false');
-      });
-      filterReservations();
-    });
-  });
-  search.addEventListener('input', filterReservations);
-}());
-</script>
 {% endblock %}

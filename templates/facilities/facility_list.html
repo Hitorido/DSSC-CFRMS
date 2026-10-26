@@ -23,36 +23,6 @@
 </div>
 {% endif %}
 
-<form method="get" class="row g-2 align-items-end mb-3">
-  <div class="col-md-4">
-    <label for="facility-search" class="form-label">Search</label>
-    <input id="facility-search" name="search" type="search" class="form-control"
-           value="{{ filters.search }}" placeholder="Name, location, or type">
-  </div>
-  <div class="col-md-3">
-    <label for="facility-status" class="form-label">Status</label>
-    <select id="facility-status" name="status" class="form-select">
-      <option value="">All statuses</option>
-      {% for value, label in facility_statuses %}
-      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-3">
-    <label for="facility-type" class="form-label">Facility type</label>
-    <select id="facility-type" name="facility_type" class="form-select">
-      <option value="">All types</option>
-      {% for facility_type in facility_types %}
-      <option value="{{ facility_type.pk }}" {% if filters.facility_type == facility_type.pk|stringformat:"s" %}selected{% endif %}>{{ facility_type.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-2 d-flex gap-2">
-    <button type="submit" class="btn btn-outline-primary">Filter</button>
-    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">Clear</a>
-  </div>
-</form>
-
 {% if user.is_student_role or user.is_admin_role %}
 <div class="page-actions mb-3">
   {% if user.is_admin_role %}
@@ -71,38 +41,44 @@
 <div class="cfrms-card">
   <div class="card-header-bar d-flex align-items-center justify-content-between">
     <span><i class="bi bi-list-ul me-2"></i>Registered Facilities</span>
-    <span class="badge bg-light text-dark fw-normal" id="facilityTotalCount">
-      {{ facilities|length }} facilit{{ facilities|length|pluralize:"y,ies" }}
+    <span class="badge bg-light text-dark fw-normal">
+      {{ paginator.count }} facilit{{ paginator.count|pluralize:"y,ies" }}
     </span>
   </div>
 
-  {% if facilities %}
-  <div class="facility-toolbar">
-    <label class="facility-search input-group" for="facilitySearch">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="search" class="form-control" id="facilitySearch"
-             placeholder="Search facilities, locations, or types" autocomplete="off">
-    </label>
-    <label class="visually-hidden" for="facilityStatus">Filter by status</label>
-    <select class="form-select facility-status-filter" id="facilityStatus">
-      <option value="all">All statuses</option>
-      <option value="AVAILABLE">Available</option>
-      <option value="UNAVAILABLE">Unavailable</option>
-      <option value="MAINTENANCE">Under maintenance</option>
-    </select>
-    <label class="facility-capacity-filter">
-      <span class="visually-hidden">Minimum facility capacity</span>
-      <input type="number" class="form-control" id="facilityCapacity" min="1"
-             inputmode="numeric" placeholder="Min. capacity" aria-label="Minimum facility capacity">
-    </label>
-    <button type="button" class="btn btn-outline-secondary facility-reset" id="facilityReset" hidden>
-      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-    </button>
-    <span class="facility-results" id="facilityResultCount" aria-live="polite">
-      Showing {{ facilities|length }} of {{ facilities|length }} facilities
-    </span>
-  </div>
-  <div class="table-responsive" id="facilityTableWrap">
+  <form method="get" class="list-toolbar">
+    <div class="list-search">
+      <label for="facility-search" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input id="facility-search" name="search" type="search" class="form-control"
+               value="{{ filters.search }}" placeholder="Name, location, or type" autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label for="facility-status" class="form-label">Status</label>
+      <select id="facility-status" name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in facility_statuses %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="facility-type" class="form-label">Facility type</label>
+      <select id="facility-type" name="facility_type" class="form-select">
+        <option value="">All types</option>
+        {% for facility_type in facility_types %}
+        <option value="{{ facility_type.pk }}" {% if filters.facility_type == facility_type.pk|stringformat:"s" %}selected{% endif %}>{{ facility_type.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">Clear</a>
+  </form>
+
+  {% if page_obj.object_list %}
+  <div class="table-responsive">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
         <tr>
@@ -118,10 +94,7 @@
       </thead>
       <tbody>
         {% for facility in facilities %}
-        <tr data-facility-row
-            data-facility-status="{{ facility.status }}"
-            data-facility-capacity="{{ facility.capacity }}"
-            data-facility-search="{{ facility.name|lower }} {{ facility.facility_type.name|lower }} {{ facility.location|lower }} {{ facility.description|lower }}">
+        <tr>
           <td>
             <div class="fw-semibold">{{ facility.name }}</div>
             {% if facility.description %}
@@ -175,64 +148,19 @@
       </tbody>
     </table>
   </div>
-  <div class="filter-empty-state" id="facilityNoResults" hidden>
-    <i class="bi bi-search"></i>
-    <p class="mb-1">No facilities match these filters.</p>
-    <span>Try a different search or reset the filters.</span>
-  </div>
+  {% include "includes/list_pagination.html" with range_select_id="facilityPageRange" %}
 
   {% else %}
   <div class="p-5 text-center text-muted">
     <i class="bi bi-building-x" style="font-size:3rem;opacity:.35;"></i>
+    {% if filters.search or filters.status or filters.facility_type %}
+    <p class="mt-3 mb-1">No records match your search criteria.</p>
+    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
+    {% else %}
     <p class="mt-3 mb-0">No facilities have been registered yet.</p>
+    {% endif %}
   </div>
   {% endif %}
 
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-(function () {
-  var search = document.getElementById('facilitySearch');
-  var status = document.getElementById('facilityStatus');
-  var capacity = document.getElementById('facilityCapacity');
-  var reset = document.getElementById('facilityReset');
-  var count = document.getElementById('facilityResultCount');
-  var empty = document.getElementById('facilityNoResults');
-  var table = document.getElementById('facilityTableWrap');
-  if (!search || !status) return;
-
-  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-facility-row]'));
-  function filterFacilities() {
-    var query = search.value.trim().toLocaleLowerCase();
-    var selectedStatus = status.value;
-    var minimumCapacity = Number(capacity.value || 0);
-    var visible = 0;
-    rows.forEach(function (row) {
-      var matchesText = row.getAttribute('data-facility-search').indexOf(query) !== -1;
-      var matchesStatus = selectedStatus === 'all' || row.getAttribute('data-facility-status') === selectedStatus;
-      var matchesCapacity = Number(row.getAttribute('data-facility-capacity')) >= minimumCapacity;
-      var show = matchesText && matchesStatus && matchesCapacity;
-      row.hidden = !show;
-      if (show) visible += 1;
-    });
-    count.textContent = 'Showing ' + visible + ' of ' + rows.length + ' facilities';
-    empty.hidden = visible !== 0;
-    table.hidden = visible === 0;
-    reset.hidden = !query && selectedStatus === 'all' && !minimumCapacity;
-  }
-
-  search.addEventListener('input', filterFacilities);
-  status.addEventListener('change', filterFacilities);
-  capacity.addEventListener('input', filterFacilities);
-  reset.addEventListener('click', function () {
-    search.value = '';
-    status.value = 'all';
-    capacity.value = '';
-    filterFacilities();
-    search.focus();
-  });
-}());
-</script>
 {% endblock %}

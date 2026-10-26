@@ -134,18 +134,6 @@
     </table>
   </div>
 
-  {% if accounts_page.has_other_pages %}
-  <nav class="p-3" aria-label="Account pages">
-    <ul class="pagination pagination-sm mb-0 justify-content-end">
-      {% if accounts_page.has_previous %}
-      <li class="page-item"><a class="page-link" href="?search={{ filters.search|urlencode }}&amp;role={{ filters.role|urlencode }}&amp;page={{ accounts_page.previous_page_number }}">Previous</a></li>
-      {% else %}<li class="page-item disabled"><span class="page-link">Previous</span></li>{% endif %}
-      <li class="page-item disabled"><span class="page-link">Page {{ accounts_page.number }} of {{ accounts_page.paginator.num_pages }}</span></li>
-      {% if accounts_page.has_next %}
-      <li class="page-item"><a class="page-link" href="?search={{ filters.search|urlencode }}&amp;role={{ filters.role|urlencode }}&amp;page={{ accounts_page.next_page_number }}">Next</a></li>
-      {% else %}<li class="page-item disabled"><span class="page-link">Next</span></li>{% endif %}
-    </ul>
-  </nav>
-  {% endif %}
+  {% include "includes/list_pagination.html" with range_select_id="adminAccountsPageRange" %}
 </div>
 {% endblock %}

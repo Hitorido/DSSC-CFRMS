@@ -161,9 +161,9 @@ class AuthAndRBACTestCase(TestCase):
         self.client.login(username='requester1', password='testpassword123')
         response = self.client.get(reverse('reservations:my_reservations'))
 
-        qs = response.context['reservations']
-        self.assertEqual(qs.count(), 1)
-        self.assertEqual(qs.first().requested_by, self.requester)
+        qs = list(response.context['reservations'])
+        self.assertEqual(len(qs), 1)
+        self.assertEqual(qs[0].requested_by, self.requester)
 
     def test_requester_cannot_access_pending_approval_page(self):
         """A REQUESTER must receive HTTP 403 when accessing the staff pending view."""
@@ -211,10 +211,10 @@ class AuthAndRBACTestCase(TestCase):
 
         self.client.login(username='staff1', password='testpassword123')
         response = self.client.get(reverse('reservations:pending_reservations'))
-        qs = response.context['reservations']
+        qs = list(response.context['reservations'])
 
-        self.assertEqual(qs.count(), 1)
-        self.assertEqual(qs.first().status, Reservation.Status.PENDING)
+        self.assertEqual(len(qs), 1)
+        self.assertEqual(qs[0].status, Reservation.Status.PENDING)
 
     # -------------------------------------------------------------------
     # ADMIN ACCESS TESTS

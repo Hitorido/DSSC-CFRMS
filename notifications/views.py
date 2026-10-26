@@ -1,8 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
+from config.list_utils import filter_query_string, paginate_queryset
 from .models import Notification
 
 
@@ -18,9 +20,8 @@ def notification_list_view(request):
     Backend-Frontend Contract:
     - Template: 'notifications/notification_list.html'
     - Context:
-        - notifications: QuerySet[Notification] for request.user,
-                         ordered by -created_at,
-                         with reservation FK pre-fetched
+        - notifications: current page of Notification rows for request.user
+        - page_obj / paginator / page_range_choices: pagination metadata
     """
     notifications = (
         Notification.objects
@@ -28,8 +29,19 @@ def notification_list_view(request):
         .select_related('reservation', 'reservation__facility', 'reservation__requested_by')
         .order_by('-created_at')
     )
+    search = request.GET.get('search', '').strip()
+    if search:
+        notifications = notifications.filter(
+            Q(message__icontains=search)
+            | Q(reservation__facility__name__icontains=search)
+        )
+
+    pagination = paginate_queryset(notifications, request.GET.get('page'))
     return render(request, 'notifications/notification_list.html', {
-        'notifications': notifications,
+        'notifications': pagination['page_obj'],
+        'filters': {'search': search},
+        'filter_query': filter_query_string(request),
+        **pagination,
     })
 
 
