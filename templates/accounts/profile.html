@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-person-vcard me-2"></i>My Profile</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">My Profile</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row g-4 align-items-start">
+  <div class="col-12 col-lg-4">
+    <section class="cfrms-card profile-summary-card" aria-label="Profile overview">
+      <div class="profile-summary-cover"></div>
+      <div class="profile-summary-body">
+        <div class="profile-summary-avatar">
+          {% if user.profile_image %}
+            <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name|default:user.username }} profile photo">
+          {% else %}
+            <span aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+          {% endif %}
+        </div>
+        <h2>{{ user.get_full_name|default:user.username }}</h2>
+        <p class="profile-username">@{{ user.username }}</p>
+        <span class="badge rounded-pill profile-role-badge">{% if user.is_unassigned_faculty_account %}Faculty{% else %}{{ user.get_role_display }}{% endif %}</span>
+        {% if user.department %}<p class="profile-summary-detail"><i class="bi bi-building me-2"></i>{{ user.department }}</p>{% endif %}
+        {% if user.bio %}<p class="profile-summary-bio">{{ user.bio }}</p>{% endif %}
+        <a href="{% url 'accounts:settings' %}" class="profile-settings-link"><i class="bi bi-sliders me-2"></i>Account settings</a>
+      </div>
+    </section>
+    <div class="profile-privacy-note"><i class="bi bi-shield-lock me-2"></i>Your account role and access permissions can only be changed by an administrator.</div>
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <section class="cfrms-card profile-editor-card">
+      <div class="profile-editor-heading">
+        <div><span class="section-eyebrow">ACCOUNT DETAILS</span><h2>Edit your profile</h2></div>
+        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="cfrms-form profile-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+        <div class="profile-photo-editor">
+          <div class="profile-photo-preview" id="profilePhotoPreview">
+            {% if user.profile_image %}
+              <img src="{{ user.profile_image.url }}" alt="Current profile photo" id="profilePhotoImage">
+            {% else %}
+              <span id="profilePhotoFallback"><i class="bi bi-person-fill"></i></span>
+              <img src="" alt="Profile photo preview" id="profilePhotoImage" hidden>
+            {% endif %}
+          </div>
+          <div class="profile-photo-controls">
+            <label for="{{ form.profile_image.id_for_label }}" class="form-label">Profile photo</label>
+            {{ form.profile_image }}
+            {% if form.profile_image.errors %}<div class="invalid-feedback d-block">{{ form.profile_image.errors.0 }}</div>{% endif %}
+            <div class="form-text">Use a JPG, PNG, or WebP image up to 5 MB. Square images look best.</div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label" for="{{ form.first_name.id_for_label }}">First name</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="{{ form.last_name.id_for_label }}">Last name</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="{{ form.email.id_for_label }}">Email address</label>
+            {{ form.email }}
+            {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="{{ form.phone_number.id_for_label }}">Phone number <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.phone_number }}
+            {% if form.phone_number.errors %}<div class="invalid-feedback d-block">{{ form.phone_number.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-sm-5">
+            <label class="form-label">System role</label>
+            <div class="form-control-plaintext">{% if user.is_unassigned_faculty_account %}Faculty{% elif user.is_student_role %}Student requester{% else %}{{ user.get_role_display }}{% endif %}</div>
+            <div class="form-text">Contact an administrator if your role is incorrect.</div>
+          </div>
+          <div class="col-sm-7">
+            <label class="form-label" for="{{ form.department.id_for_label }}">Department or course</label>
+            {{ form.department }}
+            {% if form.department.errors %}<div class="invalid-feedback d-block">{{ form.department.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="{{ form.bio.id_for_label }}">About me <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.bio }}
+            {% if form.bio.errors %}<div class="invalid-feedback d-block">{{ form.bio.errors.0 }}</div>{% endif %}
+            <div class="form-text">A short introduction, up to 280 characters.</div>
+          </div>
+        </div>
+
+        <div class="profile-form-footer">
+          <span class="text-muted small"><i class="bi bi-at me-1"></i>Username: <strong>{{ user.username }}</strong></span>
+          <button type="submit" class="btn btn-cfrms-primary"><i class="bi bi-check2 me-1"></i>Save profile</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var input = document.getElementById('{{ form.profile_image.id_for_label }}');
+  var preview = document.getElementById('profilePhotoImage');
+  var fallback = document.getElementById('profilePhotoFallback');
+  if (!input || !preview) return;
+  input.addEventListener('change', function () {
+    var file = input.files && input.files[0];
+    if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return;
+    var reader = new FileReader();
+    reader.onload = function (event) {
+      preview.src = event.target.result;
+      preview.hidden = false;
+      if (fallback) fallback.hidden = true;
+    };
+    reader.readAsDataURL(file);
+  });
+}());
+</script>
+{% endblock %}

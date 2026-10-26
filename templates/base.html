@@ -1,0 +1,321 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (function () {
+      var preference = 'system';
+      try { preference = localStorage.getItem('cfrms-theme') || 'system'; } catch (error) {}
+      if (preference !== 'light' && preference !== 'dark' && preference !== 'system') preference = 'system';
+      var dark = preference === 'dark' || (preference === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    }());
+  </script>
+  <script>
+    (function () {
+      var collapsed = false;
+      try { collapsed = localStorage.getItem('cfrms-sidebar-collapsed') === 'true'; } catch (error) {}
+      document.documentElement.dataset.sidebarCollapsed = collapsed ? 'true' : 'false';
+    }());
+  </script>
+  <title>{% block title %}CFRMS{% endblock %} — DSSC</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}?v=31">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<header class="cfrms-topbar">
+  {% if user.is_authenticated %}
+  <button type="button" class="cfrms-sidebar-toggle" id="sidebarToggle" aria-label="Open navigation" aria-expanded="false" aria-controls="cfrmsidebar" title="Toggle navigation">
+    <i class="bi bi-list"></i>
+  </button>
+  {% endif %}
+  <a href="{% url 'home' %}" class="brand">
+    <img src="{% static 'images/dssc-seal.png' %}" alt="Davao del Sur State College seal" class="brand-logo">
+    <span>
+      <span class="brand-sub">Davao del Sur State College</span>
+      Campus Facility Reservation &amp; Management System
+    </span>
+  </a>
+  {% if user.is_authenticated %}
+  <div class="topbar-right">
+    <a href="{% url 'notifications:notification_list' %}"
+       class="topbar-notification {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}"
+       aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}"
+       title="Notifications">
+      <i class="bi bi-bell-fill" aria-hidden="true"></i>
+      {% if unread_notification_count %}
+        <span class="topbar-notification-badge" aria-hidden="true">{{ unread_notification_count }}</span>
+      {% endif %}
+    </a>
+    <a href="{% url 'accounts:profile' %}" class="topbar-account" aria-label="Open profile for {{ user.get_full_name|default:user.username }}">
+      {% if user.profile_image %}
+        <img src="{{ user.profile_image.url }}" alt="" class="topbar-avatar">
+      {% else %}
+        <span class="topbar-avatar topbar-avatar-fallback"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+      {% endif %}
+      <span class="user-label d-none d-sm-flex">
+        <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+        <span class="user-role">
+          {% if user.is_student_role %}Student
+          {% elif user.is_faculty_role %}Faculty
+          {% elif user.is_unassigned_faculty_account %}Faculty
+          {% else %}{{ user.get_role_display }}{% endif %}
+        </span>
+      </span>
+    </a>
+  </div>
+  {% endif %}
+</header>
+
+{% if user.is_authenticated %}
+<nav class="cfrms-sidebar" id="cfrmsidebar" aria-label="Main navigation">
+
+  <span class="nav-section">Navigation</span>
+
+  <a href="{% url 'home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+    <i class="bi bi-house-door nav-icon"></i> Home
+  </a>
+
+  <a href="{% url 'facilities:facility_list' %}" class="nav-link {% if request.resolver_match.url_name == 'facility_list' or request.resolver_match.url_name == 'facility_create' %}active{% endif %}">
+    <i class="bi bi-building nav-icon"></i> Facilities
+  </a>
+
+  <a href="{% url 'notifications:notification_list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}">
+    <i class="bi bi-bell nav-icon"></i> Notifications
+    {% if unread_notification_count %}
+      <span class="badge bg-danger ms-auto" aria-label="{{ unread_notification_count }} unread">
+        {{ unread_notification_count }}
+      </span>
+    {% endif %}
+  </a>
+
+  {% if user.is_student_role %}
+  <span class="nav-section">Student Services</span>
+  <a href="{% url 'reservations:create_reservation' %}" class="nav-link {% if request.resolver_match.url_name == 'create_reservation' %}active{% endif %}">
+    <i class="bi bi-plus-circle nav-icon"></i>
+    Book a Facility
+  </a>
+  <a href="{% url 'reservations:my_reservations' %}" class="nav-link {% if request.resolver_match.url_name == 'my_reservations' %}active{% endif %}">
+    <i class="bi bi-calendar2-check nav-icon"></i>
+    My Bookings
+  </a>
+  {% endif %}
+
+  {% if user.is_reservation_reviewer %}
+  <span class="nav-section">Management</span>
+  <a href="{% url 'reservations:pending_reservations' %}" class="nav-link {% if request.resolver_match.url_name == 'pending_reservations' %}active{% endif %}">
+    <i class="bi bi-inbox nav-icon"></i> Reservation Requests
+  </a>
+  {% endif %}
+
+  {% if user.is_staff_role or user.is_admin_role %}
+  <a href="{% url 'facilities:maintenance_list' %}" class="nav-link {% if request.resolver_match.url_name == 'maintenance_list' or request.resolver_match.url_name == 'maintenance_create' or request.resolver_match.url_name == 'maintenance_detail' or request.resolver_match.url_name == 'maintenance_complete' or request.resolver_match.url_name == 'maintenance_cancel' %}active{% endif %}">
+    <i class="bi bi-tools nav-icon"></i> Maintenance
+  </a>
+  {% endif %}
+
+  {% if user.is_admin_role %}
+  <span class="nav-section">Administration</span>
+  <a href="{% url 'accounts:admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+    <i class="bi bi-shield-lock nav-icon"></i> CFRMS Admin
+  </a>
+  {% if user.is_staff %}
+  <a href="{% url 'admin:index' %}" class="nav-link" target="_blank" rel="noopener">
+    <i class="bi bi-gear nav-icon"></i> Django Admin
+    <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:.7rem;opacity:.6;"></i>
+  </a>
+  {% endif %}
+  {% endif %}
+
+  <span class="nav-section">Account</span>
+  <a href="{% url 'accounts:profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+    <i class="bi bi-person-vcard nav-icon"></i> My Profile
+  </a>
+  <a href="{% url 'accounts:settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+    <i class="bi bi-sliders nav-icon"></i> Settings
+  </a>
+
+  <div class="sidebar-logout" style="position:absolute;bottom:0;left:0;right:0;">
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit">
+        <i class="bi bi-box-arrow-left nav-icon"></i> Log Out
+      </button>
+    </form>
+  </div>
+
+</nav>
+<button type="button" class="cfrms-sidebar-edge-toggle" id="sidebarEdgeToggle" aria-label="Collapse navigation" aria-expanded="true" aria-controls="cfrmsidebar" title="Collapse navigation">
+  <i class="bi bi-chevron-left" aria-hidden="true"></i>
+</button>
+<button type="button" class="cfrms-sidebar-backdrop" id="sidebarBackdrop" aria-label="Close navigation" hidden></button>
+{% endif %}
+
+<main class="cfrms-main {% if not user.is_authenticated %}ms-0{% endif %}" id="cfrmsMain">
+
+  {% if messages %}
+  <div class="mb-3" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+      {% if message.tags == 'success' %}
+        <i class="bi bi-check-circle-fill flex-shrink-0 mt-1"></i>
+      {% elif message.tags == 'error' or message.tags == 'danger' %}
+        <i class="bi bi-x-circle-fill flex-shrink-0 mt-1"></i>
+      {% elif message.tags == 'warning' %}
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+      {% else %}
+        <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+      {% endif %}
+      <div>{{ message }}</div>
+      <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <footer class="cfrms-footer">
+    &copy; {% now "Y" %} Davao del Sur State College &mdash;
+    Campus Facility Reservation &amp; Management System
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmCxbVpuXKDqRrMqLmPGTuNMvWKv" crossorigin="anonymous"></script>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var btn  = document.getElementById('sidebarToggle');
+  var edgeBtn = document.getElementById('sidebarEdgeToggle');
+  var side = document.getElementById('cfrmsidebar');
+  var main = document.getElementById('cfrmsMain');
+  var backdrop = document.getElementById('sidebarBackdrop');
+  if (!side || (!btn && !edgeBtn)) return;
+
+  var mobileQuery = window.matchMedia('(max-width: 767.98px)');
+
+  function setExpanded(expanded) {
+    if (btn) {
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      btn.setAttribute('aria-label', expanded
+        ? (mobileQuery.matches ? 'Close navigation' : 'Collapse navigation')
+        : (mobileQuery.matches ? 'Open navigation' : 'Expand navigation'));
+    }
+    if (edgeBtn) {
+      edgeBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      edgeBtn.setAttribute('aria-label', expanded ? 'Collapse navigation' : 'Expand navigation');
+      edgeBtn.title = expanded ? 'Collapse navigation' : 'Expand navigation';
+    }
+  }
+
+  function closeMobileSidebar() {
+    side.classList.remove('mobile-open');
+    document.body.classList.remove('navigation-open');
+    setExpanded(false);
+    if (backdrop) {
+      backdrop.classList.remove('is-visible');
+      window.setTimeout(function () {
+        if (!side.classList.contains('mobile-open')) backdrop.hidden = true;
+      }, 220);
+    }
+  }
+
+  function toggleMobileSidebar() {
+    var open = side.classList.toggle('mobile-open');
+    setExpanded(open);
+    document.body.classList.toggle('navigation-open', open);
+    if (backdrop) {
+      if (open) {
+        backdrop.hidden = false;
+        window.requestAnimationFrame(function () { backdrop.classList.add('is-visible'); });
+      } else {
+        closeMobileSidebar();
+      }
+    }
+  }
+
+  function toggleDesktopSidebar() {
+    var collapsed = root.dataset.sidebarCollapsed !== 'true';
+    root.dataset.sidebarCollapsed = collapsed ? 'true' : 'false';
+    if (main) main.classList.toggle('sidebar-collapsed', collapsed);
+    try { localStorage.setItem('cfrms-sidebar-collapsed', collapsed ? 'true' : 'false'); } catch (error) {}
+    setExpanded(!collapsed);
+  }
+
+  if (mobileQuery.matches) {
+    setExpanded(false);
+  } else {
+    var initiallyCollapsed = root.dataset.sidebarCollapsed === 'true';
+    if (main) main.classList.toggle('sidebar-collapsed', initiallyCollapsed);
+    setExpanded(!initiallyCollapsed);
+  }
+
+  function toggleNavigation() {
+    if (mobileQuery.matches) toggleMobileSidebar();
+    else toggleDesktopSidebar();
+  }
+
+  if (btn) btn.addEventListener('click', toggleNavigation);
+  if (edgeBtn) edgeBtn.addEventListener('click', toggleNavigation);
+  if (backdrop) backdrop.addEventListener('click', closeMobileSidebar);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && side.classList.contains('mobile-open')) closeMobileSidebar();
+  });
+  side.querySelectorAll('a.nav-link').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (mobileQuery.matches) closeMobileSidebar();
+    });
+  });
+  window.addEventListener('resize', function () {
+    closeMobileSidebar();
+    var collapsed = root.dataset.sidebarCollapsed === 'true';
+    if (!mobileQuery.matches) {
+      if (main) main.classList.toggle('sidebar-collapsed', collapsed);
+      setExpanded(!collapsed);
+    }
+  });
+}());
+</script>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var selector = document.getElementById('themePreference');
+  var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  var preference = root.dataset.themePreference || 'system';
+
+  function applyTheme(choice, save) {
+    if (choice !== 'light' && choice !== 'dark' && choice !== 'system') choice = 'system';
+    preference = choice;
+    var dark = choice === 'dark' || (choice === 'system' && media && media.matches);
+    root.dataset.themePreference = choice;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    if (save) {
+      try { localStorage.setItem('cfrms-theme', choice); } catch (error) {}
+    }
+    if (selector && selector.value !== choice) selector.value = choice;
+  }
+
+  applyTheme(preference, false);
+  if (selector) selector.addEventListener('change', function () { applyTheme(selector.value, true); });
+  if (media) {
+    var onSystemThemeChange = function () { if (preference === 'system') applyTheme('system', false); };
+    if (media.addEventListener) media.addEventListener('change', onSystemThemeChange);
+    else if (media.addListener) media.addListener(onSystemThemeChange);
+  }
+}());
+</script>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

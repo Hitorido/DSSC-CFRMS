@@ -10,22 +10,27 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
+from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i1#c^g$ur@mbqfldmryb9x4sa5%5j8wk1ae!u1_=a1t)5n*^7b'
+SECRET_KEY = os.getenv('SECRET_KEY', 'insecure-default-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', os.getenv('DEBUG', 'False')).lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS parsed from comma-separated string
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if host.strip()]
+
 
 
 # Application definition
@@ -37,7 +42,34 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # CFRMS Apps
+    'accounts',
+    'facilities',
+    'reservations',
+    'notifications',
+    'analytics',
 ]
+
+AUTH_USER_MODEL = 'accounts.User'
+
+
+# ============================================================================
+# SYSTEM CHECKS CONFIGURATION
+# ============================================================================
+# Disable the database connection check (E001) for the 'analytics' database.
+# This is intentional: the analytics database is optional and loaded only
+# when ANALYTICS_DB_* environment variables are set AND not running tests.
+# Tests that need the analytics database add it explicitly via @override_settings.
+# See config/settings_test.py for test-specific configuration.
+#
+# E001: The following database aliases don't have a DEFAULT value: analytics
+# This error is silenced because:
+# 1. Analytics database is optional in production (may not be configured)
+# 2. Tests override settings explicitly to include analytics
+# 3. Analytics queries use .using('analytics') to route to correct DB
+SILENCED_SYSTEM_CHECKS = ['databases.E001']
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -54,13 +86,14 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'notifications.context_processors.unread_notification_count',
             ],
         },
     },
@@ -72,12 +105,162 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
+# PRIMARY DATABASE: Aiven Cloud MySQL
+# Prefer the application's DB_* settings. ANALYTICS_DB_* remain as fallbacks
+# for existing .env files that use the analytics connection for the primary DB.
+DATABASES = { 
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME') or os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
+        'USER': os.getenv('DB_USER') or os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
+        'PASSWORD': os.getenv('DB_PASSWORD') or os.getenv('ANALYTICS_DB_PASSWORD', ''),
+        'HOST': (
+            os.getenv('DB_HOST', '').strip()
+            or os.getenv('ANALYTICS_DB_HOST', '').strip()
+        ),
+        'PORT': int(os.getenv('DB_PORT') or os.getenv('ANALYTICS_DB_PORT', '3306')),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
+
+# Configure TLS/SSL for Aiven cloud database
+_aiven_db_host = DATABASES['default']['HOST']
+_aiven_db_ssl_ca = (
+    os.getenv('DB_SSL_CA', '').strip()
+    or os.getenv('ANALYTICS_DB_SSL_CA', '').strip()
+)
+
+if not _aiven_db_host:
+    raise ImproperlyConfigured(
+        'Set DB_HOST in .env with the Aiven hostname.'
+    )
+
+if _aiven_db_ssl_ca:
+    if not os.path.exists(_aiven_db_ssl_ca):
+        raise ImproperlyConfigured(
+            f'ANALYTICS_DB_SSL_CA file not found: {_aiven_db_ssl_ca}'
+        )
+    DATABASES['default']['OPTIONS']['ssl'] = {'ca': _aiven_db_ssl_ca}
+
+# ---------------------------------------------------------------------------
+# Optional Analytics Database (Aiven Cloud MySQL)
+# ---------------------------------------------------------------------------
+# Activated when ANALYTICS_DB_NAME is set and the configuration passes
+# validation. If ANALYTICS_DB_HOST is omitted, the analytics database reuses
+# the default database's host, port, credentials, and TLS settings while
+# connecting to the separate ANALYTICS_DB_NAME. Set ANALYTICS_DB_HOST to use
+# dedicated ANALYTICS_DB_* connection settings.
+#
+# Required .env key:
+#   ANALYTICS_DB_NAME      — analytics database name (must differ from DB_NAME)
+# Optional dedicated connection keys (used when ANALYTICS_DB_HOST is set):
+#   ANALYTICS_DB_USER, ANALYTICS_DB_PASSWORD, ANALYTICS_DB_HOST,
+#   ANALYTICS_DB_PORT, ANALYTICS_DB_SSL_CA
+#
+# The analytics alias is READ-ONLY from Django's perspective for normal
+# operation. The synthetic data generator uses it via an explicit
+# --analytics-db flag (Phase 6.3), never as a fallback for the default db.
+#
+# Test-safety: During the Django test runner, the analytics alias is NOT
+# added regardless of env vars. This prevents the test runner from trying
+# to create/migrate a test version of the remote analytics database.
+# Tests that need the analytics alias add it explicitly via
+# @override_settings and manage the test database themselves.
+
+def _running_tests():
+    """Return True when the process is running under the Django test runner or pytest."""
+    # Check sys.argv for 'test' command
+    argv = sys.argv or []
+    if 'test' in argv:
+        return True
+    # Check if pytest is loaded
+    if 'pytest' in sys.modules:
+        return True
+    return False
+
+
+_LOCAL_HOSTS = {'127.0.0.1', 'localhost', '::1', ''}
+
+_analytics_host_env = os.getenv('ANALYTICS_DB_HOST', '').strip()
+_analytics_name = os.getenv('ANALYTICS_DB_NAME', '').strip()
+if (_analytics_name or _analytics_host_env) and not _running_tests():
+    _reuse_default_connection = not _analytics_host_env
+    _default_db = DATABASES['default']
+    _analytics_host = _analytics_host_env or _default_db['HOST']
+    _analytics_user = (
+        _default_db['USER'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_USER', '')
+    )
+    _analytics_pass = (
+        _default_db['PASSWORD'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_PASSWORD', '')
+    )
+    _analytics_port = (
+        _default_db['PORT'] if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_PORT', '3306')
+    )
+    _analytics_ssl_ca = (
+        _default_db['OPTIONS'].get('ssl', {}).get('ca', '')
+        if _reuse_default_connection
+        else os.getenv('ANALYTICS_DB_SSL_CA', '') or os.getenv('DB_SSL_CA', '')
+    )
+    _default_name = DATABASES.get('default', {}).get('NAME', '')
+
+    _analytics_errors = []
+
+    # 1. Essential credentials must be present.
+    if not _analytics_name:
+        _analytics_errors.append('ANALYTICS_DB_NAME is empty')
+    if not _analytics_user:
+        _analytics_errors.append('database user is empty')
+    if not _analytics_pass:
+        _analytics_errors.append('database password is empty')
+
+    # 2. Prevent accidental alias overlap: analytics NAME must differ from
+    #    the default NAME. Pointing both aliases at the same database would
+    #    defeat isolation and risk contaminating production data.
+    if _analytics_name and _analytics_name == _default_name:
+        _analytics_errors.append(
+            f'ANALYTICS_DB_NAME ({_analytics_name!r}) must differ from '
+            f'DB_NAME ({_default_name!r})'
+        )
+
+    # 3. Require TLS CA for cloud/remote connections. Local analytics
+    #    databases (e.g. for local testing) are exempt.
+    if _analytics_host not in _LOCAL_HOSTS and not _analytics_ssl_ca:
+        _analytics_errors.append(
+            f'ANALYTICS_DB_SSL_CA is required for remote host '
+            f'{_analytics_host!r}'
+        )
+
+    if not _analytics_errors:
+        _analytics_options = (
+            dict(_default_db['OPTIONS']) if _reuse_default_connection else {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            }
+        )
+        if _analytics_ssl_ca:
+            _analytics_options['ssl'] = {'ca': _analytics_ssl_ca}
+
+        DATABASES['analytics'] = {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME':     _analytics_name,
+            'USER':     _analytics_user,
+            'PASSWORD': _analytics_pass,
+            'HOST':     _analytics_host,
+            'PORT':     _analytics_port,
+            'OPTIONS':  _analytics_options,
+        }
+    else:
+        import warnings
+        warnings.warn(
+            'Analytics database not configured: ' + '; '.join(_analytics_errors),
+            stacklevel=2,
+        )
 
 
 # Password validation
@@ -104,17 +287,31 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
 USE_TZ = True
 
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Authentication redirects
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'accounts:login'
 
 
 # Email
@@ -125,3 +322,4 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+

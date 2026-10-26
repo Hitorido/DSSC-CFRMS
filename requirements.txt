@@ -1,4 +1,8 @@
 asgiref==3.12.1
-Django==6.1.1
+Django==5.2.18
+Faker==33.1.0
+PyMySQL==1.2.3
+python-dotenv==1.2.3
+Pillow>=10.0
 sqlparse==0.6.0
 tzdata==2026.4

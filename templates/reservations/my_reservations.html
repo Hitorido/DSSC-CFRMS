@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}My Reservations{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-calendar2-check me-2"></i>My Reservations</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">My Reservations</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="page-actions mb-3">
+  <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
+    <i class="bi bi-plus-circle me-1"></i> New Reservation
+  </a>
+  <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Track each request from submission to decision.</span>
+</div>
+
+<div class="cfrms-card">
+  <div class="card-header-bar d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-list-check me-2"></i>Your Reservation Requests</span>
+    <span class="badge bg-light text-dark fw-normal">
+      {{ reservation_summary.total }} total
+    </span>
+  </div>
+
+  <form method="get" class="list-toolbar">
+    <div class="list-search">
+      <label for="reservationSearch" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="reservationSearch" name="search"
+               value="{{ filters.search }}" placeholder="ID, facility, purpose, or date"
+               autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label for="reservation-status" class="form-label">Status</label>
+      <select id="reservation-status" name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in statuses %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="reservation-date" class="form-label">Date</label>
+      <input id="reservation-date" name="date" type="date" class="form-control"
+             value="{{ filters.date }}">
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary">Clear</a>
+  </form>
+
+  <div class="p-3 border-bottom d-flex flex-wrap gap-2" aria-label="Quick status filters">
+    <a class="btn btn-sm {% if not filters.status %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?{% if filters.search %}search={{ filters.search|urlencode }}&amp;{% endif %}{% if filters.date %}date={{ filters.date|urlencode }}{% endif %}">
+      All <span class="badge text-bg-light">{{ reservation_summary.total }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'PENDING' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=PENDING{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Pending <span class="badge text-bg-light">{{ reservation_summary.pending }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'APPROVED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=APPROVED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Approved <span class="badge text-bg-light">{{ reservation_summary.approved }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'COMPLETED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=COMPLETED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Completed <span class="badge text-bg-light">{{ reservation_summary.completed }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'REJECTED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=REJECTED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Declined <span class="badge text-bg-light">{{ reservation_summary.rejected }}</span>
+    </a>
+    <a class="btn btn-sm {% if filters.status == 'CANCELLED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}"
+       href="?status=CANCELLED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}{% if filters.date %}&amp;date={{ filters.date|urlencode }}{% endif %}">
+      Cancelled <span class="badge text-bg-light">{{ reservation_summary.cancelled }}</span>
+    </a>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="table-responsive">
+    <table class="table table-hover cfrms-table mb-0">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Facility</th>
+          <th scope="col">Date</th>
+          <th scope="col">Time</th>
+          <th scope="col">Purpose</th>
+          <th scope="col" class="text-center">Status</th>
+          <th scope="col" class="text-center">Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in reservations %}
+        <tr>
+          <td class="text-muted" style="font-size:.8rem;">{{ res.pk }}</td>
+          <td>
+            <div class="fw-semibold">{{ res.facility.name }}</div>
+            <div class="text-muted" style="font-size:.78rem;">
+              <i class="bi bi-geo-alt me-1"></i>{{ res.facility.location }}
+            </div>
+          </td>
+          <td>
+            <i class="bi bi-calendar3 text-muted me-1"></i>
+            {{ res.reservation_date|date:"M d, Y" }}
+          </td>
+          <td class="text-nowrap">
+            <i class="bi bi-clock text-muted me-1"></i>
+            {{ res.start_time|time:"H:i" }} &ndash; {{ res.end_time|time:"H:i" }}
+          </td>
+          <td>{{ res.purpose|truncatechars:55 }}</td>
+          <td class="text-center">
+            {% if res.status == 'PENDING' %}
+              <span class="badge badge-pending rounded-pill px-3">
+                <i class="bi bi-hourglass-split me-1"></i>Pending
+              </span>
+            {% elif res.status == 'APPROVED' %}
+              <span class="badge badge-approved rounded-pill px-3">
+                <i class="bi bi-check-circle me-1"></i>Approved
+              </span>
+            {% elif res.status == 'COMPLETED' %}
+              <span class="badge badge-approved rounded-pill px-3">
+                <i class="bi bi-check2-all me-1"></i>Completed
+              </span>
+            {% elif res.status == 'REJECTED' %}
+              <span class="badge badge-rejected rounded-pill px-3">
+                <i class="bi bi-x-circle me-1"></i>Declined
+              </span>
+            {% else %}
+              <span class="badge badge-cancelled rounded-pill px-3">
+                <i class="bi bi-slash-circle me-1"></i>Cancelled
+              </span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{% url 'reservations:reservation_detail' res.pk %}"
+               class="btn btn-sm btn-outline-secondary"
+               aria-label="View details for reservation {{ res.pk }}">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "includes/list_pagination.html" with range_select_id="myReservationsPageRange" %}
+
+  {% elif reservation_summary.total == 0 and not filters.search and not filters.status and not filters.date %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-calendar2-x" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-1">You have not submitted any reservations yet.</p>
+    <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary btn-sm mt-2">
+      <i class="bi bi-plus-circle me-1"></i>Create your first reservation
+    </a>
+  </div>
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-funnel" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-1">No records match your search criteria.</p>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Console{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-shield-lock me-2"></i>Admin Console</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Admin Console</li>
+    </ol>
+  </nav>
+</div>
+
+<p class="text-muted mb-4">
+  Manage CFRMS account roles and monitor campus activity. Access is based on your CFRMS Admin role.
+</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="cfrms-card p-3 h-100">
+      <div class="text-muted small">Accounts</div>
+      <div class="fs-3 fw-bold">{{ total_accounts }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cfrms-card p-3 h-100">
+      <div class="text-muted small">Active accounts</div>
+      <div class="fs-3 fw-bold">{{ active_accounts }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cfrms-card p-3 h-100">
+      <div class="text-muted small">Admin accounts</div>
+      <div class="fs-3 fw-bold">{{ admin_accounts }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cfrms-card p-3 h-100">
+      <div class="text-muted small">Pending reservations</div>
+      <div class="fs-3 fw-bold">{{ pending_reservations }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <a href="{% url 'reservations:pending_reservations' %}" class="btn btn-outline-primary">
+    <i class="bi bi-inbox me-1"></i>Review reservation requests
+  </a>
+  <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-building me-1"></i>Facilities ({{ total_facilities }})
+    {% if facility_data_scope == 'analytics_sample' %}<span class="small">&middot; sample</span>{% endif %}
+  </a>
+  <a href="{% url 'facilities:facility_create' %}" class="btn btn-cfrms-primary">
+    <i class="bi bi-plus-circle me-1"></i>Add facility
+  </a>
+</div>
+
+<div class="cfrms-card">
+  <div class="card-header-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span><i class="bi bi-people me-2"></i>Account and role management</span>
+    <span class="badge bg-light text-dark fw-normal">{{ accounts_page.paginator.count }} accounts</span>
+  </div>
+
+  <form method="get" class="row g-2 p-3 align-items-end">
+    <div class="col-md-6">
+      <label for="account-search" class="form-label">Search accounts</label>
+      <input id="account-search" class="form-control" type="search" name="search"
+             value="{{ filters.search }}" placeholder="Name, username, email, or department">
+    </div>
+    <div class="col-md-4">
+      <label for="account-role" class="form-label">Role</label>
+      <select id="account-role" class="form-select" name="role">
+        <option value="">All roles</option>
+        {% for value, label in account_roles %}
+        <option value="{{ value }}" {% if filters.role == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-outline-primary" type="submit">Filter</button>
+      <a class="btn btn-outline-secondary" href="{% url 'accounts:admin_dashboard' %}">Clear</a>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 admin-account-table">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Account</th>
+          <th scope="col">Department</th>
+          <th scope="col">Status</th>
+          <th scope="col">CFRMS role</th>
+          <th scope="col">Update role</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts_page %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ account.get_full_name|default:account.username }}</div>
+            <div class="small text-muted">@{{ account.username }}{% if account.email %} · {{ account.email }}{% endif %}</div>
+          </td>
+          <td>{{ account.department|default:"—" }}</td>
+          <td>
+            {% if account.is_active %}<span class="badge text-bg-success">Active</span>
+            {% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+          </td>
+          <td>{{ account.get_role_display }}</td>
+          <td>
+            {% if account.pk == user.pk %}
+              <span class="small text-muted">Your account is protected here.</span>
+            {% elif account.is_superuser %}
+              <span class="small text-muted">Django superuser is protected.</span>
+            {% else %}
+            <form method="post" class="d-flex gap-2" aria-label="Change role for {{ account.username }}">
+              {% csrf_token %}
+              <input type="hidden" name="user_id" value="{{ account.pk }}">
+              <select name="role" class="form-select form-select-sm" aria-label="CFRMS role for {{ account.username }}">
+                {% for value, label in account_roles %}
+                <option value="{{ value }}" {% if account.role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-5">No accounts match those filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include "includes/list_pagination.html" with range_select_id="adminAccountsPageRange" %}
+</div>
+{% endblock %}

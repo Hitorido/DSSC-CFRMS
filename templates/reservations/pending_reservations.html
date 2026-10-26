@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Reservation Requests{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-inbox me-2"></i>Reservation Requests</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Reservation Requests</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row g-3 mb-4" aria-label="Reservation status totals">
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?status=ALL{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small">All requests</span><strong class="d-block fs-4">{{ summary.total }}</strong>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?status=PENDING{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small">Pending</span><strong class="d-block fs-4">{{ summary.pending }}</strong>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?status=APPROVED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small">Approved</span><strong class="d-block fs-4">{{ summary.approved }}</strong>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?status=COMPLETED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small">Completed</span><strong class="d-block fs-4">{{ summary.completed }}</strong>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?status=REJECTED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small">Declined</span><strong class="d-block fs-4">{{ summary.rejected }}</strong>
+    </a>
+  </div>
+</div>
+
+<div class="cfrms-card">
+  <div class="card-header-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span><i class="bi bi-list-check me-2"></i>Student Requests</span>
+    <span class="badge bg-light text-dark fw-normal">{{ paginator.count }} match{{ paginator.count|pluralize:"es" }}</span>
+  </div>
+
+  <form method="get" class="list-toolbar">
+    <input type="hidden" name="status" value="{{ selected_status }}">
+    <div class="list-search">
+      <label for="pendingSearch" class="form-label">Search</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="pendingSearch" name="search"
+               value="{{ filters.search }}" placeholder="ID, student, facility, or date"
+               autocomplete="off">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Search</button>
+    {% if filters.search %}
+    <a href="?status={{ selected_status }}" class="btn btn-outline-secondary">Clear search</a>
+    {% endif %}
+  </form>
+
+  <div class="p-3 border-bottom d-flex flex-wrap gap-2" aria-label="Filter reservation status">
+    <a class="btn btn-sm {% if selected_status == 'PENDING' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=PENDING{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Pending</a>
+    <a class="btn btn-sm {% if selected_status == 'APPROVED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=APPROVED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Approved</a>
+    <a class="btn btn-sm {% if selected_status == 'COMPLETED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=COMPLETED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Completed</a>
+    <a class="btn btn-sm {% if selected_status == 'REJECTED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=REJECTED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Declined</a>
+    <a class="btn btn-sm {% if selected_status == 'CANCELLED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=CANCELLED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Cancelled</a>
+    <a class="btn btn-sm {% if selected_status == 'ALL' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=ALL{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">All</a>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="table-responsive">
+    <table class="table table-hover cfrms-table mb-0">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Student requester</th>
+          <th scope="col">Facility</th>
+          <th scope="col">Date</th>
+          <th scope="col">Time</th>
+          <th scope="col">Purpose</th>
+          <th scope="col" class="text-center">Status</th>
+          <th scope="col" class="text-center">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in reservations %}
+        <tr>
+          <td class="text-muted" style="font-size:.8rem;">{{ res.pk }}</td>
+          <td>
+            <div class="fw-semibold">{{ res.requested_by.get_full_name|default:res.requested_by.username }}</div>
+            {% if res.requested_by.department %}<div class="text-muted" style="font-size:.78rem;">{{ res.requested_by.department }}</div>{% endif %}
+          </td>
+          <td>
+            <div class="fw-semibold">{{ res.facility.name }}</div>
+            <div class="text-muted" style="font-size:.78rem;"><i class="bi bi-geo-alt me-1"></i>{{ res.facility.location }}</div>
+          </td>
+          <td class="text-nowrap"><i class="bi bi-calendar3 text-muted me-1"></i>{{ res.reservation_date|date:"M d, Y" }}</td>
+          <td class="text-nowrap"><i class="bi bi-clock text-muted me-1"></i>{{ res.start_time|time:"H:i" }} &ndash; {{ res.end_time|time:"H:i" }}</td>
+          <td>{{ res.purpose|truncatechars:60 }}</td>
+          <td class="text-center">
+            {% if res.status == 'PENDING' %}<span class="badge badge-pending rounded-pill px-3">Pending</span>
+            {% elif res.status == 'APPROVED' %}<span class="badge badge-approved rounded-pill px-3">Approved</span>
+            {% elif res.status == 'COMPLETED' %}<span class="badge badge-approved rounded-pill px-3">Completed</span>
+            {% elif res.status == 'REJECTED' %}<span class="badge badge-rejected rounded-pill px-3">Declined</span>
+            {% else %}<span class="badge badge-cancelled rounded-pill px-3">Cancelled</span>{% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{% url 'reservations:reservation_detail' res.pk %}" class="btn btn-sm btn-cfrms-primary" aria-label="Review reservation {{ res.pk }}">
+              <i class="bi bi-eye me-1"></i>{% if res.status == 'PENDING' %}Review{% else %}View{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "includes/list_pagination.html" with range_select_id="pendingPageRange" %}
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-inbox" style="font-size:3rem;opacity:.35;"></i>
+    <p class="mt-3 mb-0">
+      {% if filters.search %}No records match your search criteria.
+      {% else %}No requests match this status.{% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
