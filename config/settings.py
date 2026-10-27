@@ -32,6 +32,7 @@ DEBUG = os.getenv('DJANGO_DEBUG', os.getenv('DEBUG', 'False')).lower() in ('true
 ALLOWED_HOSTS = [
     '127.0.0.1', 
     'localhost', 
+    'testserver',
     'dssc-cfrms.vercel.app', 
     '.vercel.app'
 ]

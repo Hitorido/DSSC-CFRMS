@@ -28,40 +28,93 @@
         <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
         {% endif %}
 
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
-            {{ form.name }}
-            {% for error in form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        {# Basic Information Section #}
+        <div class="mb-4">
+          <h5 class="mb-3">Basic Information</h5>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+              {{ form.name }}
+              {% for error in form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+              {{ form.location }}
+              {% for error in form.location.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.facility_type_name.id_for_label }}">{{ form.facility_type_name.label }}</label>
+              {{ form.facility_type_name }}
+              <datalist id="facilityTypeSuggestions">
+                {% for facility_type in facility_types %}<option value="{{ facility_type.name }}">{% endfor %}
+              </datalist>
+              <div class="form-text">{{ form.facility_type_name.help_text }}</div>
+              {% for error in form.facility_type_name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.capacity.id_for_label }}">{{ form.capacity.label }}</label>
+              {{ form.capacity }}
+              {% for error in form.capacity.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+              {{ form.status }}
+              {% for error in form.status.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }} <span class="text-muted fw-normal">(optional)</span></label>
+              {{ form.description }}
+              {% for error in form.description.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
           </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label" for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
-            {{ form.location }}
-            {% for error in form.location.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+
+        {# Location & Accessibility Section #}
+        <div class="mb-4 pb-3 border-bottom">
+          <h5 class="mb-3">Location &amp; Accessibility</h5>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.building_code.id_for_label }}">{{ form.building_code.label }} <span class="text-muted fw-normal">(optional)</span></label>
+              {{ form.building_code }}
+              {% for error in form.building_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.floor_number.id_for_label }}">{{ form.floor_number.label }} <span class="text-muted fw-normal">(optional)</span></label>
+              {{ form.floor_number }}
+              {% for error in form.floor_number.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                {{ form.has_wheelchair_access }}
+                <label class="form-check-label" for="{{ form.has_wheelchair_access.id_for_label }}">
+                  {{ form.has_wheelchair_access.label }}
+                </label>
+              </div>
+              {% for error in form.has_wheelchair_access.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
           </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label" for="{{ form.facility_type_name.id_for_label }}">{{ form.facility_type_name.label }}</label>
-            {{ form.facility_type_name }}
-            <datalist id="facilityTypeSuggestions">
-              {% for facility_type in facility_types %}<option value="{{ facility_type.name }}">{% endfor %}
-            </datalist>
-            <div class="form-text">{{ form.facility_type_name.help_text }}</div>
-            {% for error in form.facility_type_name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label" for="{{ form.capacity.id_for_label }}">{{ form.capacity.label }}</label>
-            {{ form.capacity }}
-            {% for error in form.capacity.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-            {{ form.status }}
-            {% for error in form.status.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }} <span class="text-muted fw-normal">(optional)</span></label>
-            {{ form.description }}
-            {% for error in form.description.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+
+        {# Amenities & Operations Section #}
+        <div class="mb-4">
+          <h5 class="mb-3">Amenities &amp; Operations</h5>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="{{ form.equipment_list.id_for_label }}">{{ form.equipment_list.label }} <span class="text-muted fw-normal">(optional)</span></label>
+              {{ form.equipment_list }}
+              <div class="form-text">List items separated by commas.</div>
+              {% for error in form.equipment_list.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.hours_of_operation.id_for_label }}">{{ form.hours_of_operation.label }} <span class="text-muted fw-normal">(optional)</span></label>
+              {{ form.hours_of_operation }}
+              {% for error in form.hours_of_operation.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.noise_level.id_for_label }}">{{ form.noise_level.label }}</label>
+              {{ form.noise_level }}
+              {% for error in form.noise_level.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
           </div>
         </div>
 

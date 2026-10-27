@@ -16,13 +16,33 @@ class FacilityCreateForm(forms.ModelForm):
 
     class Meta:
         model = Facility
-        fields = ('name', 'location', 'capacity', 'status', 'description')
+        fields = (
+            'name', 'location', 'capacity', 'status', 'description',
+            'equipment_list', 'hours_of_operation', 'noise_level',
+            'floor_number', 'building_code', 'has_wheelchair_access'
+        )
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'capacity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'equipment_list': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Comma-separated list (e.g., Projector, Whiteboard, A/C)'
+            }),
+            'hours_of_operation': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., 8am-6pm weekdays, 9am-5pm weekends'
+            }),
+            'noise_level': forms.Select(attrs={'class': 'form-select'}),
+            'floor_number': forms.NumberInput(attrs={'class': 'form-control'}),
+            'building_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., ADMIN, SCI, MAIN'
+            }),
+            'has_wheelchair_access': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'name': 'Facility name',
@@ -30,6 +50,12 @@ class FacilityCreateForm(forms.ModelForm):
             'capacity': 'Capacity',
             'status': 'Availability',
             'description': 'Description',
+            'equipment_list': 'Equipment',
+            'hours_of_operation': 'Hours of operation',
+            'noise_level': 'Noise level',
+            'floor_number': 'Floor number',
+            'building_code': 'Building code',
+            'has_wheelchair_access': 'Wheelchair accessible',
         }
 
     def __init__(self, *args, **kwargs):

@@ -1,0 +1,509 @@
+{# Facility Booking Calendar Component #}
+{# Usage: {% include "components/facility_calendar_widget.html" with facility_id=facility.id %} #}
+
+<div class="facility-calendar-widget" data-facility-id="{{ facility_id }}">
+    <style>
+        :root {
+            --calendar-green: #28a745;
+            --calendar-yellow: #ffc107;
+            --calendar-red: #dc3545;
+            --calendar-gray: #6c757d;
+        }
+
+        .facility-calendar-widget {
+            width: 100%;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .calendar-month-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .calendar-month-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .calendar-nav-btn {
+            background: white;
+            border: 1px solid #dee2e6;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+            transition: all 0.2s;
+        }
+
+        .calendar-nav-btn:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 8px;
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            color: #667eea;
+            padding: 8px 0;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+            background: #f8f9fa;
+            color: #999;
+        }
+
+        /* Color states */
+        .day-available-low {
+            background: var(--calendar-green);
+            color: white;
+            cursor: pointer;
+        }
+
+        .day-available-low:hover {
+            transform: scale(1.08);
+            box-shadow: 0 3px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .day-available-moderate {
+            background: var(--calendar-yellow);
+            color: #333;
+            cursor: pointer;
+        }
+
+        .day-available-moderate:hover {
+            transform: scale(1.08);
+            box-shadow: 0 3px 8px rgba(255, 193, 7, 0.3);
+        }
+
+        .day-available-high {
+            background: var(--calendar-red);
+            color: white;
+            cursor: pointer;
+        }
+
+        .day-available-high:hover {
+            transform: scale(1.08);
+            box-shadow: 0 3px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        .day-unavailable {
+            background: var(--calendar-gray);
+            color: white;
+            cursor: not-allowed;
+        }
+
+        .day-unavailable:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .day-other-month {
+            color: #ddd;
+            background: transparent;
+            cursor: default;
+        }
+
+        .day-today {
+            border-color: #667eea;
+            border-width: 2px;
+        }
+
+        .day-selected {
+            border-color: #333;
+            border-width: 3px;
+        }
+
+        /* Tooltip */
+        .calendar-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 100;
+            font-size: 11px;
+            font-weight: normal;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+            min-width: 180px;
+        }
+
+        .calendar-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #2c3e50;
+        }
+
+        .calendar-day:hover .calendar-tooltip {
+            display: block;
+        }
+
+        .tooltip-occupancy {
+            font-weight: 600;
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #555;
+        }
+
+        .tooltip-section {
+            margin-top: 6px;
+            font-size: 10px;
+        }
+
+        .tooltip-section-title {
+            font-weight: 600;
+            color: #aaa;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+            font-size: 9px;
+        }
+
+        .tooltip-item {
+            padding: 2px 0;
+            font-size: 10px;
+        }
+
+        .calendar-legend {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #dee2e6;
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        .legend-green { background: var(--calendar-green); }
+        .legend-yellow { background: var(--calendar-yellow); }
+        .legend-red { background: var(--calendar-red); }
+        .legend-gray { background: var(--calendar-gray); }
+
+        @media (max-width: 576px) {
+            .calendar-day {
+                font-size: 12px;
+            }
+
+            .calendar-tooltip {
+                min-width: 150px;
+                font-size: 10px;
+                bottom: 105%;
+            }
+
+            .calendar-month-nav {
+                gap: 5px;
+            }
+
+            .calendar-month-title {
+                font-size: 14px;
+            }
+
+            .calendar-nav-btn {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+
+    <!-- Calendar Header -->
+    <div class="calendar-month-nav">
+        <button type="button" class="calendar-nav-btn" data-action="prev-month">← Previous</button>
+        <div class="calendar-month-title" data-month-display>Loading...</div>
+        <button type="button" class="calendar-nav-btn" data-action="next-month">Next →</button>
+    </div>
+
+    <!-- Weekday Headers -->
+    <div class="calendar-weekdays">
+        <div class="calendar-weekday">Sun</div>
+        <div class="calendar-weekday">Mon</div>
+        <div class="calendar-weekday">Tue</div>
+        <div class="calendar-weekday">Wed</div>
+        <div class="calendar-weekday">Thu</div>
+        <div class="calendar-weekday">Fri</div>
+        <div class="calendar-weekday">Sat</div>
+    </div>
+
+    <!-- Calendar Grid -->
+    <div class="calendar-grid" data-calendar-grid></div>
+
+    <!-- Legend -->
+    <div class="calendar-legend">
+        <div class="legend-item">
+            <div class="legend-color legend-green"></div>
+            <span>0-33% occupied</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-yellow"></div>
+            <span>34-66% occupied</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-red"></div>
+            <span>67-100% occupied</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-gray"></div>
+            <span>Unavailable</span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Find the widget element - it should be the div with class facility-calendar-widget
+    const widget = document.querySelector('.facility-calendar-widget');
+    if (!widget) {
+        console.error('Calendar widget not found');
+        return;
+    }
+    
+    const facilityId = widget.dataset.facilityId;
+    if (!facilityId) {
+        console.error('Facility ID not found in widget');
+        return;
+    }
+    
+    let currentDate = new Date();
+    let currentFacilityId = facilityId;
+
+    function getDaysInMonth(date) {
+        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    }
+
+    function getFirstDayOfMonth(date) {
+        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    }
+
+    function isToday(date) {
+        const today = new Date();
+        return date.getDate() === today.getDate() &&
+               date.getMonth() === today.getMonth() &&
+               date.getFullYear() === today.getFullYear();
+    }
+
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    function getOccupancyClass(occupancy) {
+        if (occupancy < 34) return 'day-available-low';
+        if (occupancy < 67) return 'day-available-moderate';
+        return 'day-available-high';
+    }
+
+    async function fetchDayData(date) {
+        const dateStr = formatDate(date);
+        try {
+            const response = await fetch(`/facilities/${currentFacilityId}/calendar-api/${dateStr}/`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.warn('Error fetching calendar data:', error);
+        }
+        return {
+            occupancy: 0,
+            reservations: [],
+            maintenance: [],
+            is_available: true
+        };
+    }
+
+    function formatTime(timeStr) {
+        if (!timeStr) return '';
+        const [h, m] = timeStr.split(':');
+        const hour = parseInt(h);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const display = hour % 12 || 12;
+        return `${display}:${m} ${ampm}`;
+    }
+
+    function createTooltip(dayData) {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'calendar-tooltip';
+
+        let html = `<div class="tooltip-occupancy">${dayData.occupancy}% occupied</div>`;
+
+        if (dayData.reservations.length > 0) {
+            html += '<div class="tooltip-section">';
+            html += `<div class="tooltip-section-title">Reservations (${dayData.reservations.length})</div>`;
+            dayData.reservations.forEach(res => {
+                const timeRange = `${formatTime(res.start_time)} - ${formatTime(res.end_time)}`;
+                html += `<div class="tooltip-item"><strong>${timeRange}</strong><br>${res.purpose}</div>`;
+            });
+            html += '</div>';
+        }
+
+        if (dayData.maintenance.length > 0) {
+            html += '<div class="tooltip-section">';
+            html += `<div class="tooltip-section-title">Maintenance (${dayData.maintenance.length})</div>`;
+            dayData.maintenance.forEach(m => {
+                const timeRange = `${formatTime(m.start_time)} - ${formatTime(m.end_time)}`;
+                html += `<div class="tooltip-item"><strong>${timeRange}</strong><br>${m.title}</div>`;
+            });
+            html += '</div>';
+        }
+
+        if (dayData.reservations.length === 0 && dayData.maintenance.length === 0) {
+            html += '<div class="tooltip-section"><em>No bookings</em></div>';
+        }
+
+        tooltip.innerHTML = html;
+        return tooltip;
+    }
+
+    async function createDayElement(date, dayData) {
+        const dayDiv = document.createElement('div');
+        const dayNum = date.getDate();
+
+        if (!dayData.is_available) {
+            dayDiv.className = 'calendar-day day-unavailable';
+            dayDiv.textContent = dayNum;
+        } else {
+            const colorClass = getOccupancyClass(dayData.occupancy);
+            dayDiv.className = `calendar-day ${colorClass}`;
+
+            if (isToday(date)) {
+                dayDiv.classList.add('day-today');
+            }
+
+            dayDiv.textContent = dayNum;
+            dayDiv.appendChild(createTooltip(dayData));
+
+            // Click handler to select date
+            dayDiv.addEventListener('click', function() {
+                const dateStr = formatDate(date);
+                // Emit custom event for date selection
+                widget.dispatchEvent(new CustomEvent('calendarDateSelected', {
+                    detail: { date: dateStr, dateObj: date }
+                }));
+                // Also bubble up to document level for form listeners
+                document.dispatchEvent(new CustomEvent('calendarDateSelected', {
+                    detail: { date: dateStr, dateObj: date }
+                }));
+            });
+        }
+
+        return dayDiv;
+    }
+
+    async function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        // Update title
+        const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        widget.querySelector('[data-month-display]').textContent = monthName;
+
+        // Clear grid
+        const grid = widget.querySelector('[data-calendar-grid]');
+        grid.innerHTML = '';
+
+        const daysInMonth = getDaysInMonth(currentDate);
+        const firstDay = getFirstDayOfMonth(currentDate);
+
+        // Previous month's days
+        const prevMonthDays = getDaysInMonth(new Date(year, month - 1, 1));
+        for (let i = firstDay - 1; i >= 0; i--) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'calendar-day day-other-month';
+            dayDiv.textContent = prevMonthDays - i;
+            grid.appendChild(dayDiv);
+        }
+
+        // Current month's days
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dayData = await fetchDayData(date);
+            const dayElement = await createDayElement(date, dayData);
+            grid.appendChild(dayElement);
+        }
+
+        // Next month's days
+        const totalCells = grid.children.length;
+        const remainingCells = 42 - totalCells;
+        for (let day = 1; day <= remainingCells; day++) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'calendar-day day-other-month';
+            dayDiv.textContent = day;
+            grid.appendChild(dayDiv);
+        }
+    }
+
+    // Event handlers
+    widget.querySelector('[data-action="prev-month"]').addEventListener('click', function() {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    widget.querySelector('[data-action="next-month"]').addEventListener('click', function() {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    // Listen for facility change events
+    widget.addEventListener('facilityChanged', function(event) {
+        currentFacilityId = event.detail.facilityId;
+        // Reset to current month when facility changes
+        currentDate = new Date();
+        renderCalendar();
+    });
+
+    // Initial render
+    renderCalendar();
+})();
+</script>

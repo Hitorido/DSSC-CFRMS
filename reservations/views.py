@@ -786,3 +786,27 @@ def complete_reservation_view(request, pk):
         messages.error(request, exc.message)
 
     return redirect('reservations:reservation_detail', pk=pk)
+
+
+@login_required
+@require_GET
+def get_calendar_widget(request):
+    """
+    AJAX endpoint to dynamically load the calendar widget for a facility.
+    Returns the rendered HTML of facility_calendar_widget.html.
+    
+    Query params:
+    - facility_id: ID of the facility (required)
+    """
+    facility_id = request.GET.get('facility_id')
+    if not facility_id:
+        return JsonResponse({'error': 'facility_id required'}, status=400)
+    
+    try:
+        facility = Facility.objects.get(id=facility_id)
+    except Facility.DoesNotExist:
+        return JsonResponse({'error': 'Facility not found'}, status=404)
+    
+    # Render the calendar widget component
+    context = {'facility_id': facility_id}
+    return render(request, 'components/facility_calendar_widget.html', context, content_type='text/html')

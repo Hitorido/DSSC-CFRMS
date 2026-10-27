@@ -578,3 +578,26 @@ def maintenance_cancel_view(request, pk):
     except ValidationError as exc:
         messages.error(request, exc.message)
         return redirect('facilities:maintenance_detail', pk=pk)
+
+
+@login_required
+def facility_calendar_view(request, pk):
+    """
+    Display interactive facility booking calendar.
+    
+    Shows color-coded availability by occupancy percentage.
+    On hover, shows list of reservations and maintenance for each day.
+    
+    GET parameters:
+        - month: YYYY-MM to navigate to specific month (defaults to today)
+    """
+    try:
+        facility = Facility.objects.select_related('facility_type').get(pk=pk)
+    except Facility.DoesNotExist:
+        raise Http404('Facility not found.')
+    
+    context = {
+        'facility': facility,
+    }
+    
+    return render(request, 'facilities/facility_booking_calendar.html', context)
