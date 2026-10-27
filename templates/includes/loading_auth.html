@@ -1,0 +1,38 @@
+<div class="cfrms-skeleton-auth" data-skeleton-view="{{ auth_mode }}">
+  <div class="cfrms-login-wrapper cfrms-auth-page cfrms-auth-{{ auth_mode }}">
+    <div class="cfrms-auth-shell">
+      <div class="cfrms-auth-visual">
+        <div class="cfrms-auth-brand">
+          <div class="cfrms-auth-brand-logo"><span class="cfrms-skeleton-bone cfrms-skeleton-fill"></span></div>
+          <div><span class="cfrms-skeleton-bone cfrms-skeleton-auth-brand"></span><span class="cfrms-skeleton-bone cfrms-skeleton-auth-college"></span></div>
+        </div>
+        <div class="cfrms-auth-visual-copy">
+          <span class="cfrms-auth-eyebrow cfrms-skeleton-bone cfrms-skeleton-ink">FACILITY RESERVATIONS</span>
+          <h2 class="cfrms-skeleton-bone cfrms-skeleton-ink">Campus spaces,<br>made simple.</h2>
+          <p class="cfrms-skeleton-bone cfrms-skeleton-ink">{% if auth_mode == 'register' %}Reserve the spaces you need.{% else %}Find and reserve DSSC facilities.{% endif %}</p>
+        </div>
+      </div>
+      <div class="cfrms-login-card cfrms-auth-card">
+        <div class="cfrms-auth-heading-row"><div class="cfrms-auth-heading"><h1 class="cfrms-skeleton-bone cfrms-skeleton-ink">{% if auth_mode == 'register' %}Create account{% else %}Sign in{% endif %}</h1></div></div>
+        <div class="cfrms-auth-form">
+          {% if auth_mode == 'register' %}
+          <div class="row g-3 mb-3">
+            <div class="col-6">{% include "includes/loading_field.html" with label="First Name" field_class="cfrms-skeleton-field-wrap" %}</div>
+            <div class="col-6">{% include "includes/loading_field.html" with label="Last Name" field_class="cfrms-skeleton-field-wrap" %}</div>
+          </div>
+          {% include "includes/loading_field.html" with label="Username" %}
+          {% include "includes/loading_field.html" with label="Email" %}
+          {% include "includes/loading_field.html" with label="Department / Course" help_text="Choose a department or college first; the same box will then show its courses." %}
+          {% include "includes/loading_field.html" with label="Password" help_text="Use 8+ characters; avoid common or all-number passwords." %}
+          {% include "includes/loading_field.html" with label="Confirm Password" field_class="mb-4" %}
+          {% else %}
+          {% include "includes/loading_field.html" with label="Username" %}
+          {% include "includes/loading_field.html" with label="Password" field_class="mb-4" %}
+          {% endif %}
+          <div class="d-grid{% if auth_mode == 'register' %} mb-3{% endif %}"><span class="btn btn-cfrms-primary btn-lg cfrms-skeleton-bone cfrms-skeleton-control">{% if auth_mode == 'register' %}Create Account{% else %}Log In{% endif %}</span></div>
+        </div>
+        <p class="cfrms-auth-switch text-center{% if auth_mode == 'login' %} mt-3{% endif %} mb-0"><span class="cfrms-skeleton-bone cfrms-skeleton-ink mx-auto">{% if auth_mode == 'register' %}Already have an account? Sign in{% else %}No account yet? Create an account{% endif %}</span></p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -37,7 +37,7 @@
           <span class="badge badge-pending rounded-pill px-3">
             <i class="bi bi-hourglass-split me-1"></i>Pending
           </span>
-          <small class="d-block mt-1">This reservation is waiting for review.</small>
+          <small class="d-block mt-1">{% if reservation.appeal_count %}Appeal {{ reservation.appeal_count }} of {{ reservation.MAX_APPEALS }} is waiting for review.{% else %}This reservation is waiting for review.{% endif %}</small>
         {% elif reservation.status == 'APPROVED' %}
           <span class="badge badge-approved rounded-pill px-3">
             <i class="bi bi-check-circle me-1"></i>Approved
@@ -129,7 +129,16 @@
         <dl class="row mb-0" style="font-size:.9rem;">
           <dt class="col-sm-5 text-muted fw-normal">Reviewed By</dt>
           <dd class="col-sm-7 fw-semibold">
-            {{ reservation.reviewed_by.get_full_name|default:reservation.reviewed_by.username }}
+            <div class="reservation-reviewer">
+              <span class="reservation-reviewer-avatar" aria-hidden="true">
+                {% if reservation.reviewed_by.profile_image %}
+                <img src="{{ reservation.reviewed_by.profile_image.url }}" alt="" width="44" height="44" loading="lazy" decoding="async">
+                {% else %}
+                <i class="bi bi-person-fill"></i>
+                {% endif %}
+              </span>
+              <span class="reservation-reviewer-name">{{ reservation.reviewed_by.get_full_name|default:reservation.reviewed_by.username }}</span>
+            </div>
           </dd>
 
           <dt class="col-sm-5 text-muted fw-normal">Reviewed At</dt>
@@ -154,6 +163,32 @@
     </div>
     {% endif %}
 
+    {% if appeals %}
+    <div class="cfrms-card">
+      <div class="card-header-bar"><i class="bi bi-clock-history me-2" aria-hidden="true"></i>Appeal History</div>
+      <div class="p-4">
+        <p class="text-muted small">{{ reservation.appeal_count }} of {{ reservation.MAX_APPEALS }} appeals used.</p>
+        <ol class="reservation-appeal-history">
+          {% for appeal in appeals %}
+          <li>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <strong>Appeal {{ appeal.attempt }}</strong>
+              <time class="text-muted small" datetime="{{ appeal.created_at|date:'c' }}">{{ appeal.created_at|date:"M d, Y" }} at {{ appeal.created_at|time:"H:i" }}</time>
+            </div>
+            <p class="reservation-appeal-reason mb-2">{{ appeal.reason }}</p>
+            {% if appeal.previous_decline_reason %}
+            <details class="small text-muted">
+              <summary>Previous decline reason</summary>
+              <p class="reservation-appeal-reason mt-2 mb-0">{{ appeal.previous_decline_reason }}</p>
+            </details>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </div>
+    {% endif %}
+
     {% if reservation.completed_by %}
     <div class="cfrms-card">
       <div class="card-header-bar"><i class="bi bi-check2-all me-2"></i>Completion Information</div>
@@ -166,6 +201,38 @@
 
     {# ── REQUESTER: Cancel action ─────────────────────────────────────── #}
     {% if user.is_student_role and reservation.requested_by == user %}
+      {% if reservation.is_rejected %}
+      <div class="cfrms-card">
+        <div class="card-header-bar"><i class="bi bi-arrow-counterclockwise me-2" aria-hidden="true"></i>Appeal Reservation</div>
+        <div class="p-4">
+          {% if reservation.can_appeal %}
+          <p class="text-muted mb-2">You can appeal this decision and update your booking details.</p>
+          <p class="small mb-3"><strong>{{ reservation.appeals_remaining }} of {{ reservation.MAX_APPEALS }} appeals remaining.</strong> An appeal returns your request to Pending for review.</p>
+          <a href="{% url 'reservations:appeal_reservation' reservation.pk %}" class="btn btn-cfrms-primary">
+            <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Submit an Appeal
+          </a>
+          {% else %}
+          <p class="text-muted mb-0" role="status">You have used all {{ reservation.MAX_APPEALS }} appeals for this reservation. No further appeals can be submitted.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% if reservation.can_edit %}
+      <div class="cfrms-card mb-3">
+        <div class="card-header-bar">
+          <i class="bi bi-pencil-square me-2" aria-hidden="true"></i>Edit Reservation
+        </div>
+        <div class="p-4">
+          <p class="text-muted mb-3" style="font-size:.875rem;">
+            Update the facility, purpose, date, or time before your booking starts.
+            {% if reservation.is_approved %}Saving changes will return this reservation to Pending for review.{% endif %}
+          </p>
+          <a href="{% url 'reservations:edit_reservation' reservation.pk %}" class="btn btn-cfrms-primary">
+            <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit This Reservation
+          </a>
+        </div>
+      </div>
+      {% endif %}
       {% if reservation.is_pending or reservation.is_approved %}
       <div class="cfrms-card">
         <div class="card-header-bar" style="background:#7f8c8d;">

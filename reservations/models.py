@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -23,6 +24,7 @@ class Reservation(models.Model):
 
     # The statuses that physically hold/block a time slot on the facility schedule
     BLOCKING_STATUSES = [Status.APPROVED, Status.PENDING]
+    MAX_APPEALS = 3
 
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -75,6 +77,12 @@ class Reservation(models.Model):
         default='',
         help_text='Explanation provided by a reviewer when the request is declined.',
     )
+    appeal_count = models.PositiveSmallIntegerField(
+        default=0,
+        editable=False,
+        validators=[MaxValueValidator(3)],
+        help_text='Number of appeals submitted for this reservation (maximum three).',
+    )
 
     completed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -109,6 +117,10 @@ class Reservation(models.Model):
             models.CheckConstraint(
                 condition=models.Q(end_time__gt=models.F('start_time')),
                 name='reservation_end_after_start',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(appeal_count__gte=0, appeal_count__lte=3),
+                name='reservation_appeal_limit',
             ),
         ]
         indexes = [
@@ -147,6 +159,25 @@ class Reservation(models.Model):
     @property
     def is_completed(self):
         return self.status == self.Status.COMPLETED
+
+    @property
+    def can_edit(self):
+        """Pending and approved bookings may be edited before they start."""
+        if self.status not in self.BLOCKING_STATUSES or not self.reservation_date or not self.start_time:
+            return False
+        scheduled_start = timezone.make_aware(
+            datetime.combine(self.reservation_date, self.start_time),
+            timezone.get_current_timezone(),
+        )
+        return timezone.now() < scheduled_start
+
+    @property
+    def appeals_remaining(self):
+        return max(0, self.MAX_APPEALS - self.appeal_count)
+
+    @property
+    def can_appeal(self):
+        return self.is_rejected and self.appeals_remaining > 0
 
     def clean(self):
         """
@@ -246,6 +277,46 @@ class Reservation(models.Model):
         super().save(*args, **kwargs)
 
     # Workflow methods
+    def appeal(self, reason):
+        """Resubmit a declined request, counting only successfully saved appeals."""
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ValidationError({'appeal_reason': 'Explain your appeal using between 1 and 2,000 characters.'})
+        database = self._state.db or 'default'
+        with transaction.atomic(using=database):
+            current = type(self).objects.using(database).select_for_update().get(pk=self.pk)
+            if not current.is_rejected:
+                raise ValidationError('Only declined reservations can be appealed.')
+            if not current.can_appeal:
+                raise ValidationError('You have used all three appeals for this reservation.')
+
+            now = timezone.localtime()
+            if self.reservation_date < now.date():
+                raise ValidationError({'reservation_date': 'Choose today or a future date for your appeal.'})
+            if self.reservation_date == now.date() and self.start_time <= now.time().replace(tzinfo=None):
+                raise ValidationError({'start_time': 'Choose a start time later than the current time.'})
+            if self.facility.status != Facility.Status.AVAILABLE:
+                raise ValidationError({'facility': 'Choose an available facility for your appeal.'})
+
+            previous_decline_reason = current.rejection_reason
+            for field in ('facility_id', 'purpose', 'reservation_date', 'start_time', 'end_time'):
+                setattr(current, field, getattr(self, field))
+            current.status = self.Status.PENDING
+            current.appeal_count += 1
+            current.reviewed_by = None
+            current.reviewed_at = None
+            current.rejection_reason = ''
+            current.completed_by = None
+            current.completed_at = None
+            current.save(using=database)
+            ReservationAppeal.objects.using(database).create(
+                reservation=current,
+                attempt=current.appeal_count,
+                reason=reason,
+                previous_decline_reason=previous_decline_reason,
+            )
+            self.refresh_from_db(using=database)
+
     def approve(self, reviewer):
         """
         Approve the pending reservation and record reviewer details.
@@ -296,3 +367,24 @@ class Reservation(models.Model):
             raise ValidationError('Cannot cancel a reservation that is already declined, cancelled, or completed.')
         self.status = self.Status.CANCELLED
         self.save()
+
+
+class ReservationAppeal(models.Model):
+    reservation = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='appeals')
+    attempt = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(3)])
+    reason = models.TextField(max_length=2000)
+    previous_decline_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-attempt']
+        constraints = [
+            models.UniqueConstraint(fields=['reservation', 'attempt'], name='appeal_unique_attempt'),
+            models.CheckConstraint(
+                condition=models.Q(attempt__gte=1, attempt__lte=3),
+                name='appeal_attempt_range',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Appeal {self.attempt} for reservation #{self.reservation_id}'

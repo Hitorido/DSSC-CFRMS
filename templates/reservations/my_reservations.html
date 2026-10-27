@@ -17,7 +17,7 @@
   <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> New Reservation
   </a>
-  <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Track each request from submission to decision.</span>
+  <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Select a reservation row to view its details.</span>
 </div>
 
 <div class="cfrms-card">
@@ -35,12 +35,12 @@
         <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input type="search" class="form-control" id="reservationSearch" name="search"
                value="{{ filters.search }}" placeholder="ID, facility, purpose, or date"
-               autocomplete="off">
+               autocomplete="off" onchange="this.form.requestSubmit()">
       </div>
     </div>
     <div>
       <label for="reservation-status" class="form-label">Status</label>
-      <select id="reservation-status" name="status" class="form-select">
+      <select id="reservation-status" name="status" class="form-select" onchange="this.form.requestSubmit()">
         <option value="">All statuses</option>
         {% for value, label in statuses %}
         <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
@@ -50,9 +50,9 @@
     <div>
       <label for="reservation-date" class="form-label">Date</label>
       <input id="reservation-date" name="date" type="date" class="form-control"
-             value="{{ filters.date }}">
+             value="{{ filters.date }}" onchange="this.form.requestSubmit()">
     </div>
-    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <noscript><button type="submit" class="btn btn-outline-primary">Filter</button></noscript>
     <a href="{% url 'reservations:my_reservations' %}" class="btn btn-outline-secondary">Clear</a>
   </form>
 
@@ -94,15 +94,18 @@
           <th scope="col">Time</th>
           <th scope="col">Purpose</th>
           <th scope="col" class="text-center">Status</th>
-          <th scope="col" class="text-center">Detail</th>
+          <th scope="col" class="text-center">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for res in reservations %}
-        <tr>
+        <tr class="reservation-list-row"
+            data-reservation-url="{% url 'reservations:reservation_detail' res.pk %}"
+            tabindex="0"
+            aria-label="View reservation {{ res.pk }} for {{ res.facility.name }}">
           <td class="text-muted" style="font-size:.8rem;">{{ res.pk }}</td>
           <td>
-            <div class="fw-semibold">{{ res.facility.name }}</div>
+            <a href="{% url 'reservations:reservation_detail' res.pk %}" class="reservation-detail-link fw-semibold">{{ res.facility.name }}</a>
             <div class="text-muted" style="font-size:.78rem;">
               <i class="bi bi-geo-alt me-1"></i>{{ res.facility.location }}
             </div>
@@ -138,13 +141,37 @@
                 <i class="bi bi-slash-circle me-1"></i>Cancelled
               </span>
             {% endif %}
+            {% if res.appeal_count or res.is_rejected %}<small class="d-block text-muted mt-1">{{ res.appeal_count }}/{{ res.MAX_APPEALS }} appeals used</small>{% endif %}
           </td>
           <td class="text-center">
-            <a href="{% url 'reservations:reservation_detail' res.pk %}"
-               class="btn btn-sm btn-outline-secondary"
-               aria-label="View details for reservation {{ res.pk }}">
-              <i class="bi bi-eye"></i>
+            <div class="reservation-actions">
+            {% if res.can_appeal %}
+            <a href="{% url 'reservations:appeal_reservation' res.pk %}" class="reservation-appeal-button"
+               aria-label="Appeal reservation {{ res.pk }} for {{ res.facility.name }}">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Appeal
             </a>
+            {% endif %}
+            {% if res.can_edit %}
+            <a href="{% url 'reservations:edit_reservation' res.pk %}" class="reservation-edit-button"
+               title="Edit reservation" aria-label="Edit reservation {{ res.pk }} for {{ res.facility.name }}">
+              <i class="bi bi-pencil-square" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            {% if res.is_pending or res.is_approved %}
+            <form method="post" action="{% url 'reservations:cancel_reservation' res.pk %}" class="m-0"
+                  onsubmit="return confirm('Cancel reservation #{{ res.pk }}? The reserved time slot will be released.');">
+              {% csrf_token %}
+              <button type="submit" class="reservation-cancel-button"
+                      title="Cancel reservation" aria-label="Cancel reservation {{ res.pk }} for {{ res.facility.name }}">
+                <i class="bi bi-slash-circle" aria-hidden="true"></i>
+              </button>
+            </form>
+            {% elif res.is_rejected and not res.can_appeal %}
+            <span class="text-muted small">No appeals left</span>
+            {% elif not res.can_appeal %}
+            <span class="text-muted" aria-label="Cancellation unavailable for this {{ res.get_status_display|lower }} reservation">&mdash;</span>
+            {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -170,4 +197,27 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  document.querySelectorAll('.reservation-list-row[data-reservation-url]').forEach(function (row) {
+    row.addEventListener('click', function (event) {
+      if (event.target.closest('a, button, input, select, textarea, label, form')) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (window.getSelection().toString().trim()) return;
+      if (window.CFRMSLoading && window.CFRMSLoading.navigate) window.CFRMSLoading.navigate(row.dataset.reservationUrl);
+      else window.location.href = row.dataset.reservationUrl;
+    });
+
+    row.addEventListener('keydown', function (event) {
+      if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      if (window.CFRMSLoading && window.CFRMSLoading.navigate) window.CFRMSLoading.navigate(row.dataset.reservationUrl);
+      else window.location.href = row.dataset.reservationUrl;
+    });
+  });
+}());
+</script>
 {% endblock %}

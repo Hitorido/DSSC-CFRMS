@@ -23,6 +23,13 @@
 </div>
 {% endif %}
 
+{% if selected_date %}
+<div class="alert alert-info d-flex align-items-start gap-2" role="status">
+  <i class="bi bi-calendar3 mt-1" aria-hidden="true"></i>
+  <div>Selected date: <strong>{{ selected_date|date:'F j, Y' }}</strong>. Choose a facility to check its schedule.</div>
+</div>
+{% endif %}
+
 {% if user.is_student_role or user.is_admin_role %}
 <div class="page-actions mb-3">
   {% if user.is_admin_role %}
@@ -31,7 +38,7 @@
   </a>
   {% endif %}
   {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
-  <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary">
+  <a href="{% url 'reservations:create_reservation' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% endif %}" class="btn btn-cfrms-primary">
     <i class="bi bi-plus-circle me-1"></i> Reserve a Facility
   </a>
   {% endif %}
@@ -47,17 +54,19 @@
   </div>
 
   <form method="get" class="list-toolbar">
+    {% if selected_date %}<input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">{% endif %}
     <div class="list-search">
       <label for="facility-search" class="form-label">Search</label>
       <div class="input-group">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input id="facility-search" name="search" type="search" class="form-control"
-               value="{{ filters.search }}" placeholder="Name, location, or type" autocomplete="off">
+               value="{{ filters.search }}" placeholder="Name, location, or type" autocomplete="off"
+               onchange="this.form.requestSubmit()">
       </div>
     </div>
     <div>
       <label for="facility-status" class="form-label">Status</label>
-      <select id="facility-status" name="status" class="form-select">
+      <select id="facility-status" name="status" class="form-select" onchange="this.form.requestSubmit()">
         <option value="">All statuses</option>
         {% for value, label in facility_statuses %}
         <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
@@ -66,15 +75,14 @@
     </div>
     <div>
       <label for="facility-type" class="form-label">Facility type</label>
-      <select id="facility-type" name="facility_type" class="form-select">
+      <select id="facility-type" name="facility_type" class="form-select" onchange="this.form.requestSubmit()">
         <option value="">All types</option>
         {% for facility_type in facility_types %}
         <option value="{{ facility_type.pk }}" {% if filters.facility_type == facility_type.pk|stringformat:"s" %}selected{% endif %}>{{ facility_type.name }}</option>
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-outline-primary">Filter</button>
-    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary">Clear</a>
+    <a href="{% url 'facilities:facility_list' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% endif %}" class="btn btn-outline-secondary">Clear</a>
   </form>
 
   {% if page_obj.object_list %}
@@ -94,9 +102,14 @@
       </thead>
       <tbody>
         {% for facility in facilities %}
-        <tr>
+        <tr class="facility-list-row"
+            data-facility-url="{% url 'facilities:facility_detail' facility.pk %}{{ facility_calendar_suffix }}"
+            tabindex="0"
+            aria-label="View details for {{ facility.name }}">
           <td>
-            <div class="fw-semibold">{{ facility.name }}</div>
+            <a href="{% url 'facilities:facility_detail' facility.pk %}{{ facility_calendar_suffix }}" class="facility-detail-link fw-semibold">
+              {{ facility.name }}
+            </a>
             {% if facility.description %}
             <div class="text-muted" style="font-size:.8rem;">
               {{ facility.description|truncatechars:80 }}
@@ -134,7 +147,7 @@
           {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
           <td class="text-center">
             {% if facility.status == 'AVAILABLE' %}
-            <a href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}"
+            <a href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}{% if selected_date %}&amp;date={{ selected_date|date:'Y-m-d' }}{% endif %}"
                class="btn btn-sm btn-cfrms-primary">
               Reserve
             </a>
@@ -155,7 +168,7 @@
     <i class="bi bi-building-x" style="font-size:3rem;opacity:.35;"></i>
     {% if filters.search or filters.status or filters.facility_type %}
     <p class="mt-3 mb-1">No records match your search criteria.</p>
-    <a href="{% url 'facilities:facility_list' %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
+    <a href="{% url 'facilities:facility_list' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% endif %}" class="btn btn-outline-secondary btn-sm mt-2">Clear filters</a>
     {% else %}
     <p class="mt-3 mb-0">No facilities have been registered yet.</p>
     {% endif %}
@@ -163,4 +176,26 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  document.querySelectorAll('.facility-list-row[data-facility-url]').forEach(function (row) {
+    row.addEventListener('click', function (event) {
+      if (event.target.closest('a, button, input, select, textarea, label, form')) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (window.CFRMSLoading && window.CFRMSLoading.navigate) window.CFRMSLoading.navigate(row.dataset.facilityUrl);
+      else window.location.href = row.dataset.facilityUrl;
+    });
+
+    row.addEventListener('keydown', function (event) {
+      if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      if (window.CFRMSLoading && window.CFRMSLoading.navigate) window.CFRMSLoading.navigate(row.dataset.facilityUrl);
+      else window.location.href = row.dataset.facilityUrl;
+    });
+  });
+}());
+</script>
 {% endblock %}

@@ -1,0 +1,24 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/loading.css' %}?v=3">
+<script>
+(function () {
+  document.documentElement.dataset.cfrmsPageLoading = 'initial';
+  window.cfrmsLoadingFallback = window.setTimeout(function () {
+    if (document.documentElement.dataset.cfrmsPageLoading === 'initial') {
+      delete document.documentElement.dataset.cfrmsPageLoading;
+    }
+  }, 12000);
+  window.CFRMSLoading = {
+    pending: [],
+    beginRegion: function (element, label) {
+      var task = { element: element, label: label, done: false };
+      this.pending.push(task);
+      return function () {
+        task.done = true;
+        if (task.finish) task.finish();
+      };
+    }
+  };
+}());
+</script>
+<script src="{% static 'js/loading.js' %}?v=3" defer></script>

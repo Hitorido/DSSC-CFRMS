@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ dashboard_title|default:"Dashboard" }}{% endblock %}
 
@@ -22,12 +23,16 @@
 </div>
 
 {# ── Welcome banner ──────────────────────────────────────────────────────── #}
+{% if not user.is_faculty_role and not user.is_staff_role and not user.is_admin_role %}
 <div class="cfrms-card home-welcome mb-4">
+  {% if not user.is_student_role %}
   <div class="card-header-bar d-flex align-items-center gap-2">
     <i class="bi bi-person-circle"></i>
     <span>Welcome back</span>
   </div>
+  {% endif %}
   <div class="p-4 home-welcome-content">
+  {% if not user.is_student_role %}
     <div class="row g-3 align-items-center">
       <div class="col-auto">
         <div class="rounded-circle d-flex align-items-center justify-content-center home-avatar"
@@ -40,27 +45,127 @@
         </div>
       </div>
       <div class="col">
-        <h2 class="mb-0 fw-bold home-greeting">{{ user.get_full_name|default:user.username }}</h2>
-        <p class="home-subtitle mb-0 mt-1">{{ dashboard_subtitle }}</p>
-        <div class="d-flex flex-wrap gap-2 mt-1">
-          <span class="badge rounded-pill dashboard-role-badge">
+        <div class="home-identity-line d-flex flex-wrap align-items-center gap-2">
+          <h2 class="mb-0 fw-bold home-greeting">{{ user.get_full_name|default:user.username }}</h2>
+        </div>
+        <div class="home-profile-meta d-flex flex-wrap align-items-center gap-2 mt-1">
+          <span class="home-profile-role">
             {% if user.is_student_role %}Student
             {% elif user.is_faculty_role %}Faculty
             {% elif user.is_unassigned_faculty_account %}Faculty
             {% else %}{{ user.get_role_display }}{% endif %}
           </span>
-          {% if user.department %}
-            <span class="badge rounded-pill bg-light text-dark border">
-              <i class="bi bi-building me-1"></i>{{ user.department }}
+          {% if user.department and not user.is_student_role %}
+            <span class="home-profile-department">
+              <i class="bi bi-building me-1" aria-hidden="true"></i>{{ user.department }}
             </span>
           {% endif %}
         </div>
+        <p class="home-subtitle mb-0 mt-1">{{ dashboard_subtitle }}</p>
       </div>
     </div>
+  {% endif %}
+  {% if user.is_student_role %}
+  <section class="home-student-overview" aria-label="Student overview metrics">
+    <div class="row g-3 dashboard-overview mb-0">
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'facilities:facility_list' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-blue"><i class="bi bi-building-check"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Total Facilities</span>
+              <strong>{{ facility_summary.total }}</strong>
+              <span class="dashboard-metric-note">{{ facility_summary.available }} available</span>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'reservations:my_reservations' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon icon-tone-violet"><i class="bi bi-calendar2-week"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Total Reservations</span>
+              <strong>{{ reservation_summary.total }}</strong>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'reservations:my_reservations' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-amber"><i class="bi bi-hourglass-split"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">My pending requests</span>
+              <strong>{{ reservation_summary.pending }}</strong>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'reservations:my_reservations' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-green"><i class="bi bi-calendar2-check"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">My approved bookings</span>
+              <strong>{{ reservation_summary.approved }}</strong>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
   </div>
 </div>
+{% endif %}
 
 {# ── Quick-action cards — role-specific ──────────────────────────────────── #}
+{% if user.is_student_role %}
+<section class="cfrms-card upcoming-panel mb-4" aria-labelledby="upcomingHeading">
+  <div class="upcoming-panel-heading">
+    <div>
+      <span class="section-eyebrow">YOUR SCHEDULE</span>
+      <h2 id="upcomingHeading">Upcoming reservations</h2>
+    </div>
+    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-sm btn-light">
+      View all <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+  </div>
+  {% if upcoming_reservations %}
+  <div class="upcoming-list">
+    {% for reservation in upcoming_reservations %}
+    <a href="{% url 'reservations:reservation_detail' reservation.pk %}" class="upcoming-item">
+      <span class="upcoming-date"><strong>{{ reservation.reservation_date|date:"d" }}</strong><small>{{ reservation.reservation_date|date:"M" }}</small></span>
+      <span class="upcoming-info">
+        <strong>{{ reservation.facility.name }}</strong>
+        <small><i class="bi bi-clock me-1"></i>{{ reservation.start_time|time:"H:i" }} – {{ reservation.end_time|time:"H:i" }} <span class="mx-1">·</span> {{ reservation.facility.location }}</small>
+      </span>
+      {% if reservation.status == 'APPROVED' %}
+      <span class="badge badge-approved rounded-pill"><i class="bi bi-check-circle me-1"></i>Approved</span>
+      {% else %}
+      <span class="badge badge-pending rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+      {% endif %}
+      <i class="bi bi-chevron-right upcoming-chevron"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="upcoming-empty">
+    <span class="upcoming-empty-icon" aria-hidden="true"><i class="bi bi-calendar2-plus"></i></span>
+    <div><strong>No upcoming reservations</strong><p class="mb-0">Your future bookings will appear here.</p></div>
+    <a href="{% url 'reservations:create_reservation' %}" class="btn btn-cfrms-primary upcoming-empty-cta ms-auto">Book a facility</a>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if not user.is_student_role %}
+{% if not user.is_faculty_role and not user.is_staff_role and not user.is_admin_role %}
 <h6 class="dashboard-section-title">
   {% if user.is_student_role %}Student Overview
   {% elif user.is_faculty_role %}Faculty Overview
@@ -69,11 +174,10 @@
   {% elif user.is_admin_role %}System Overview
   {% else %}My Overview{% endif %}
 </h6>
+{% endif %}
 <div class="row g-3 mb-4 dashboard-overview">
   <div class="col-12 col-sm-6 col-xl-3">
-    {% if not user.is_staff_role %}
     <a href="{% url 'facilities:facility_list' %}" class="dashboard-metric-link">
-    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-blue"><i class="bi bi-building-check"></i></span>
         <span class="dashboard-metric-copy">
@@ -84,13 +188,9 @@
             {% else %}{{ facility_summary.available }} available{% endif %}
           </span>
         </span>
-        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
-        {% endif %}
       </div>
-    {% if not user.is_staff_role %}
     </a>
-    {% endif %}
   </div>
   {% if user.is_student_role %}
   <div class="col-12 col-sm-6 col-xl-3">
@@ -131,40 +231,40 @@
   </div>
   {% elif user.is_staff_role or user.is_faculty_role %}
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dashboard-metric">
-      <span class="dashboard-metric-icon metric-blue"><i class="bi bi-calendar2-week"></i></span>
-      <span class="dashboard-metric-copy">
-        <span class="dashboard-metric-label">Total Reservations</span>
-        <strong>{{ total_reservations }}</strong>
-      </span>
-    </div>
+    <a href="{% url 'reservations:reservation_report' %}" class="dashboard-metric-link">
+      <div class="dashboard-metric">
+        <span class="dashboard-metric-icon icon-tone-violet"><i class="bi bi-calendar2-week"></i></span>
+        <span class="dashboard-metric-copy">
+          <span class="dashboard-metric-label">Total Reservations</span>
+          <strong>{{ total_reservations }}</strong>
+        </span>
+        <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+      </div>
+    </a>
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
-    {% if not user.is_staff_role %}
     <a href="{% url 'reservations:pending_reservations' %}" class="dashboard-metric-link">
-    {% endif %}
       <div class="dashboard-metric">
         <span class="dashboard-metric-icon metric-amber"><i class="bi bi-inbox"></i></span>
         <span class="dashboard-metric-copy">
           <span class="dashboard-metric-label">Requests to review</span>
           <strong>{{ pending_reservation_count }}</strong>
         </span>
-        {% if not user.is_staff_role %}
         <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
-        {% endif %}
       </div>
-    {% if not user.is_staff_role %}
     </a>
-    {% endif %}
   </div>
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dashboard-metric">
-      <span class="dashboard-metric-icon metric-green"><i class="bi bi-calendar2-event"></i></span>
-      <span class="dashboard-metric-copy">
-        <span class="dashboard-metric-label">Approved bookings today</span>
-        <strong>{{ today_booking_count }}</strong>
-      </span>
-    </div>
+    <a href="{% url 'reservations:reservation_report' %}?status=APPROVED&amp;start_date={% now 'Y-m-d' %}&amp;end_date={% now 'Y-m-d' %}" class="dashboard-metric-link">
+      <div class="dashboard-metric">
+        <span class="dashboard-metric-icon metric-green"><i class="bi bi-calendar2-event"></i></span>
+        <span class="dashboard-metric-copy">
+          <span class="dashboard-metric-label">Approved bookings today</span>
+          <strong>{{ today_booking_count }}</strong>
+        </span>
+        <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+      </div>
+    </a>
   </div>
   {% elif user.is_admin_role %}
   <div class="col-12 col-sm-6 col-xl-3">
@@ -199,6 +299,126 @@
   </div>
   {% endif %}
 </div>
+{% endif %}
+
+<details class="cfrms-card facility-calendar-card dashboard-month-calendar mb-4" aria-labelledby="dashboardCalendarHeading" open>
+  <summary class="card-header-bar dashboard-calendar-summary d-flex align-items-center justify-content-between gap-3">
+    <span id="dashboardCalendarHeading"><i class="bi bi-calendar3 me-2"></i>Monthly Reservation Calendar</span>
+    <span class="dashboard-calendar-summary-meta">
+      <span class="badge bg-light text-dark fw-normal">
+        {{ dashboard_calendar_reservation_count }} reservation{{ dashboard_calendar_reservation_count|pluralize }}
+      </span>
+      <i class="bi bi-chevron-down dashboard-calendar-toggle-icon" aria-hidden="true"></i>
+    </span>
+  </summary>
+  <div class="p-3 p-md-4">
+    <div class="facility-calendar-toolbar">
+      <a class="btn btn-outline-secondary btn-sm" href="?calendar_month={{ dashboard_calendar_previous_month }}" aria-label="Previous month">
+        <i class="bi bi-chevron-left" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Previous</span>
+      </a>
+      <h2>{{ dashboard_calendar_month }}</h2>
+      <a class="btn btn-outline-secondary btn-sm" href="?calendar_month={{ dashboard_calendar_next_month }}" aria-label="Next month">
+        <span class="d-none d-sm-inline me-1">Next</span><i class="bi bi-chevron-right" aria-hidden="true"></i>
+      </a>
+    </div>
+
+    <div class="facility-calendar-legend" aria-label="Reservation status legend">
+      <span><i class="legend-dot legend-pending"></i>Pending</span>
+      <span><i class="legend-dot legend-approved"></i>Approved</span>
+      <span><i class="legend-dot legend-completed"></i>Completed</span>
+      <span><i class="legend-dot legend-rejected"></i>Declined</span>
+      <span><i class="legend-dot legend-cancelled"></i>Cancelled</span>
+    </div>
+
+    <p class="facility-calendar-note">
+      {% if user.is_student_role %}
+      Showing your reservations for this month.
+      {% elif user.is_reservation_reviewer %}
+      Showing student reservations available to your reviewer role. Select an event to view its details.
+      {% else %}
+      Reservations scheduled for this month are shown here.
+      {% endif %}
+      {% if user.is_student_role %}Select an empty date from today onward, then choose a facility to book.{% endif %}
+    </p>
+
+    {% if not dashboard_calendar_reservation_count %}
+    <div class="alert alert-light border mb-3" role="status">No reservations are scheduled for {{ dashboard_calendar_month }}.</div>
+    {% endif %}
+
+    <div class="facility-calendar-scroll">
+      <div class="facility-calendar-grid" role="grid" aria-label="{{ dashboard_calendar_month }} reservations">
+        {% for weekday in dashboard_calendar_weekdays %}
+        <div class="facility-calendar-weekday" role="columnheader">{{ weekday }}</div>
+        {% endfor %}
+
+        {% for week in dashboard_calendar_weeks %}
+          {% for day in week %}
+          <div id="home-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
+            {% if user.is_student_role and day.in_month and not day.is_past and not day.events %}
+            <a class="facility-calendar-day-action" href="{% url 'reservations:create_reservation' %}?date={{ day.date|date:'Y-m-d' }}" data-calendar-booking-date="{{ day.date|date:'Y-m-d' }}" aria-haspopup="dialog" aria-controls="homeFacilityPicker" aria-label="Choose a facility for {{ day.date|date:'F j, Y' }}">
+              <span>Choose a facility <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            {% endif %}
+            <div class="facility-calendar-day-head">
+              <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
+              {% if day.in_month and day.is_past %}<span class="facility-availability is-past">Past date</span>{% endif %}
+            </div>
+            {% if day.in_month %}
+            <div class="facility-calendar-events">
+              {% for event in day.events %}
+              {% if event.can_view_details and not day.is_past %}
+              <a class="facility-calendar-event-link" href="{% url 'reservations:reservation_detail' event.reservation_id %}" aria-label="View {{ event.label|lower }} reservation for {{ event.facility_name }} from {{ event.start_time|time:'H:i' }} to {{ event.end_time|time:'H:i' }}">
+              {% endif %}
+              <div class="facility-calendar-event event-{{ event.status_class }}" title="{{ event.facility_name }} &middot; {{ event.start_time|time:'H:i' }}&ndash;{{ event.end_time|time:'H:i' }} &middot; {{ event.label }}">
+                <strong>{{ event.start_time|time:'H:i' }}&ndash;{{ event.end_time|time:'H:i' }}</strong>
+                <span>{{ event.facility_name|truncatechars:24 }}</span>
+                <span>{{ event.label }}{% if event.requester_name %} &middot; {{ event.requester_name|truncatechars:20 }}{% endif %}</span>
+              </div>
+              {% if event.can_view_details and not day.is_past %}
+              </a>
+              {% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</details>
+
+{% if user.is_student_role %}
+<dialog id="homeFacilityPicker" class="calendar-facility-picker" data-min-date="{% now 'Y-m-d' %}" aria-labelledby="homeFacilityPickerTitle" aria-describedby="homeFacilityPickerDescription">
+  <div class="calendar-facility-picker-heading">
+    <div>
+      <h2 id="homeFacilityPickerTitle" tabindex="-1">Choose a facility</h2>
+      <p id="homeFacilityPickerDescription">For <time id="homeFacilityPickerDate"></time>. Choose a facility to continue with your booking.</p>
+    </div>
+    <button type="button" class="calendar-facility-picker-close" data-calendar-picker-close aria-label="Close facility chooser"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="m5 5 8 8M13 5l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+  </div>
+  {% if home_booking_facilities %}
+  <div class="calendar-facility-picker-search">
+    <label for="homeFacilityPickerSearch" class="visually-hidden">Search facilities</label>
+    <input type="search" id="homeFacilityPickerSearch" class="form-control" placeholder="Search by facility, location, or type" autocomplete="off">
+  </div>
+  {% endif %}
+  <div class="calendar-facility-picker-list">
+    {% for facility in home_booking_facilities %}
+    <a class="calendar-facility-option" href="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}" data-calendar-booking-url="{% url 'reservations:create_reservation' %}?facility={{ facility.pk }}" data-calendar-facility-search="{{ facility.name }} {{ facility.location }} {{ facility.facility_type.name }}">
+      <span class="calendar-facility-option-icon" aria-hidden="true"><i class="bi bi-building"></i></span>
+      <span class="calendar-facility-option-details">
+        <strong>{{ facility.name }}</strong>
+        <span>{{ facility.location }}</span>
+        <small>{{ facility.facility_type.name }} &middot; {{ facility.capacity }} people</small>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="m7 4 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    {% endfor %}
+    <p class="calendar-facility-picker-empty" id="homeFacilityPickerEmpty" role="status"{% if home_booking_facilities %} hidden{% endif %}>No facilities are currently available for booking.</p>
+  </div>
+</dialog>
+{% endif %}
 
 {% if show_dashboard_analytics %}
 <section class="dashboard-analytics mb-4" aria-labelledby="dashboardAnalyticsHeading">
@@ -361,46 +581,9 @@
 </dialog>
 {% endif %}
 
-{% if user.is_student_role %}
-<section class="cfrms-card upcoming-panel mb-4" aria-labelledby="upcomingHeading">
-  <div class="upcoming-panel-heading">
-    <div>
-      <span class="section-eyebrow">YOUR SCHEDULE</span>
-      <h2 id="upcomingHeading">Upcoming reservations</h2>
-    </div>
-    <a href="{% url 'reservations:my_reservations' %}" class="btn btn-sm btn-light">
-      View all <i class="bi bi-arrow-right ms-1"></i>
-    </a>
-  </div>
-  {% if upcoming_reservations %}
-  <div class="upcoming-list">
-    {% for reservation in upcoming_reservations %}
-    <a href="{% url 'reservations:reservation_detail' reservation.pk %}" class="upcoming-item">
-      <span class="upcoming-date"><strong>{{ reservation.reservation_date|date:"d" }}</strong><small>{{ reservation.reservation_date|date:"M" }}</small></span>
-      <span class="upcoming-info">
-        <strong>{{ reservation.facility.name }}</strong>
-        <small><i class="bi bi-clock me-1"></i>{{ reservation.start_time|time:"H:i" }} – {{ reservation.end_time|time:"H:i" }} <span class="mx-1">·</span> {{ reservation.facility.location }}</small>
-      </span>
-      {% if reservation.status == 'APPROVED' %}
-      <span class="badge badge-approved rounded-pill"><i class="bi bi-check-circle me-1"></i>Approved</span>
-      {% else %}
-      <span class="badge badge-pending rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
-      {% endif %}
-      <i class="bi bi-chevron-right upcoming-chevron"></i>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="upcoming-empty">
-    <span class="upcoming-empty-icon"><i class="bi bi-calendar2-plus"></i></span>
-    <div><strong>No upcoming reservations</strong><p class="mb-0">Book a campus space when you need one.</p></div>
-    <a href="{% url 'reservations:create_reservation' %}" class="btn btn-sm btn-cfrms-primary ms-auto">Make a reservation</a>
-  </div>
-  {% endif %}
-</section>
-{% endif %}
 
-{% if not user.is_unassigned_faculty_account and not user.is_faculty_role %}
+{% if not user.is_unassigned_faculty_account and not user.is_faculty_role and not user.is_student_role %}
+{% if not user.is_staff_role and not user.is_admin_role %}
 <h6 class="dashboard-section-title">
   {% if user.is_student_role %}Student Actions
   {% elif user.is_faculty_role %}Faculty Actions
@@ -523,6 +706,7 @@
   {% endif %}
 
 </div>
+{% endif %}
 
 {# ── System info strip ───────────────────────────────────────────────────── #}
 {% endif %}
@@ -544,6 +728,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if user.is_student_role %}<script src="{% static 'js/dashboard-calendar.js' %}?v=1"></script>{% endif %}
 {% if show_dashboard_analytics %}
 {{ chart_month_labels|json_script:"dashboard-month-labels" }}
 {{ chart_month_values|json_script:"dashboard-month-values" }}

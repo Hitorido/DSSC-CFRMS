@@ -11,7 +11,7 @@
       <select id="{{ range_select_id|default:'listPageRange' }}"
               class="form-select form-select-sm list-page-range"
               aria-label="Select record range"
-              onchange="window.location.href=this.value">
+              onchange="if (window.CFRMSLoading &amp;&amp; window.CFRMSLoading.navigate) { window.CFRMSLoading.navigate(this.value); } else { window.location.href=this.value; }">
         {% for choice in page_range_choices %}
         <option value="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ choice.page }}"
                 {% if page_obj.number == choice.page %}selected{% endif %}>

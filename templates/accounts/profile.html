@@ -47,7 +47,7 @@
         {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
         <div class="profile-photo-editor">
-          <div class="profile-photo-preview" id="profilePhotoPreview">
+          <div class="profile-photo-preview" id="profilePhotoPreview" data-loading-shape="avatar">
             {% if user.profile_image %}
               <img src="{{ user.profile_image.url }}" alt="Current profile photo" id="profilePhotoImage">
             {% else %}
@@ -86,7 +86,7 @@
           </div>
           <div class="col-sm-5">
             <label class="form-label">System role</label>
-            <div class="form-control-plaintext">{% if user.is_unassigned_faculty_account %}Faculty{% elif user.is_student_role %}Student requester{% else %}{{ user.get_role_display }}{% endif %}</div>
+            <div class="form-control-plaintext">{% if user.is_unassigned_faculty_account %}Faculty{% elif user.is_student_role %}Student{% else %}{{ user.get_role_display }}{% endif %}</div>
             <div class="form-text">Contact an administrator if your role is incorrect.</div>
           </div>
           <div class="col-sm-7">
@@ -118,16 +118,21 @@
   var input = document.getElementById('{{ form.profile_image.id_for_label }}');
   var preview = document.getElementById('profilePhotoImage');
   var fallback = document.getElementById('profilePhotoFallback');
+  var photoReadNumber = 0;
   if (!input || !preview) return;
   input.addEventListener('change', function () {
+    var currentRead = ++photoReadNumber;
     var file = input.files && input.files[0];
     if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return;
     var reader = new FileReader();
+    var finishLoading = window.CFRMSLoading ? window.CFRMSLoading.beginRegion(document.getElementById('profilePhotoPreview'), 'Loading profile photo…') : function () {};
     reader.onload = function (event) {
+      if (currentRead !== photoReadNumber) return;
       preview.src = event.target.result;
       preview.hidden = false;
       if (fallback) fallback.hidden = true;
     };
+    reader.onloadend = finishLoading;
     reader.readAsDataURL(file);
   });
 }());

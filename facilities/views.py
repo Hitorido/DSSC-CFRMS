@@ -1,12 +1,20 @@
+import calendar
+from datetime import date, timedelta
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import connections, transaction
 from django.db.models import Q
-from django.http import HttpResponseNotAllowed
+from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from accounts.decorators import admin_required, staff_or_admin_required
+from accounts.models import User
 from config.list_utils import build_search_q, filter_query_string, paginate_queryset
 from .forms import FacilityCreateForm, FacilityMaintenanceForm
 from .models import Facility, FacilityMaintenance, FacilityType
@@ -34,6 +42,18 @@ def facility_list_view(request):
     search = request.GET.get('search', '').strip()
     status = request.GET.get('status', '')
     facility_type = request.GET.get('facility_type', '')
+    try:
+        selected_date = parse_date(request.GET.get('date', ''))
+    except ValueError:
+        selected_date = None
+    if selected_date and not 2000 <= selected_date.year <= 2100:
+        selected_date = None
+    facility_calendar_suffix = ''
+    if selected_date:
+        facility_calendar_suffix = '?' + urlencode({
+            'month': selected_date.strftime('%Y-%m'),
+            'date': selected_date.isoformat(),
+        }) + f'#facility-calendar-day-{selected_date.isoformat()}'
 
     if search:
         facilities = facilities.filter(
@@ -60,6 +80,8 @@ def facility_list_view(request):
         'facility_statuses': Facility.Status.choices,
         'facility_types': facility_types,
         'facility_data_scope': facility_data_scope,
+        'selected_date': selected_date,
+        'facility_calendar_suffix': facility_calendar_suffix,
         'filters': {
             'search': search,
             'status': status,
@@ -69,6 +91,195 @@ def facility_list_view(request):
         **pagination,
     }
     return render(request, 'facilities/facility_list.html', context)
+
+
+@login_required
+def facility_detail_view(request, pk):
+    """Show facility information and a month-by-month reservation calendar."""
+    data_alias = 'default'
+    facility_data_scope = 'operational'
+    try:
+        facility = Facility.objects.using(data_alias).select_related(
+            'facility_type',
+        ).get(pk=pk)
+    except Facility.DoesNotExist:
+        # Keep detail links usable when the list is showing analytics-only
+        # sample facilities because the operational database has no catalog.
+        if 'analytics' not in connections.databases:
+            raise Http404('Facility not found.')
+        try:
+            facility = Facility.objects.using('analytics').filter(
+                is_synthetic=True,
+            ).select_related('facility_type').get(pk=pk)
+        except Facility.DoesNotExist:
+            raise Http404('Facility not found.')
+        data_alias = 'analytics'
+        facility_data_scope = 'analytics_sample'
+
+    today = timezone.localdate()
+    try:
+        selected_date = parse_date(request.GET.get('date', ''))
+    except ValueError:
+        selected_date = None
+    if selected_date and not 2000 <= selected_date.year <= 2100:
+        selected_date = None
+    month_value = request.GET.get('month', '')
+    try:
+        year, month = (int(part) for part in month_value.split('-', 1))
+        if len(month_value) != 7 or not (1 <= month <= 12) or not (2000 <= year <= 2100):
+            raise ValueError
+    except (TypeError, ValueError):
+        calendar_date = selected_date or today
+        year, month = calendar_date.year, calendar_date.month
+
+    month_start = date(year, month, 1)
+    month_end = date(year, month, calendar.monthrange(year, month)[1])
+    if selected_date and (selected_date.year != year or selected_date.month != month):
+        selected_date = None
+    previous_month = (month_start - timedelta(days=1)).strftime('%Y-%m')
+    next_month = (month_end + timedelta(days=1)).strftime('%Y-%m')
+
+    # Import locally to avoid coupling facilities.models to reservations.models.
+    from reservations.models import Reservation
+
+    reservations = list(
+        Reservation.objects.using(data_alias)
+        .filter(
+            facility_id=facility.pk,
+            reservation_date__range=(month_start, month_end),
+        )
+        .exclude(status__in=[Reservation.Status.REJECTED, Reservation.Status.CANCELLED])
+        .order_by('reservation_date', 'start_time')
+        .values(
+            'pk', 'requested_by_id', 'requested_by__role', 'requested_by__user_type',
+            'reservation_date', 'start_time', 'end_time', 'status',
+        )
+    )
+    maintenance_records = list(
+        FacilityMaintenance.objects.using(data_alias)
+        .filter(
+            facility_id=facility.pk,
+            maintenance_date__range=(month_start, month_end),
+            status=FacilityMaintenance.Status.SCHEDULED,
+        )
+        .order_by('maintenance_date', 'start_time')
+        .values('maintenance_date', 'start_time', 'end_time')
+    )
+
+    events_by_date = {}
+    status_labels = dict(Reservation.Status.choices)
+    for reservation in reservations:
+        is_blocking = reservation['status'] in Reservation.BLOCKING_STATUSES
+        requester_is_student = (
+            reservation['requested_by__role'] == User.Role.REQUESTER
+            and reservation['requested_by__user_type'] != User.UserType.FACULTY
+        )
+        can_view_details = (
+            facility_data_scope != 'analytics_sample'
+            and (
+                (
+                    request.user.is_reservation_reviewer
+                    and reservation['requested_by_id'] != request.user.pk
+                    and requester_is_student
+                )
+                or (
+                    request.user.is_student_role
+                    and reservation['requested_by_id'] == request.user.pk
+                )
+            )
+        )
+        events_by_date.setdefault(reservation['reservation_date'], []).append({
+            'reservation_id': reservation['pk'],
+            'kind': 'reservation',
+            'label': status_labels.get(reservation['status'], reservation['status'].title()),
+            'status_class': reservation['status'].lower(),
+            'start_time': reservation['start_time'],
+            'end_time': reservation['end_time'],
+            'blocks_availability': is_blocking,
+            'can_view_details': can_view_details,
+        })
+    for maintenance in maintenance_records:
+        events_by_date.setdefault(maintenance['maintenance_date'], []).append({
+            'kind': 'maintenance',
+            'label': 'Maintenance',
+            'status_class': 'maintenance',
+            'start_time': maintenance['start_time'],
+            'end_time': maintenance['end_time'],
+            'blocks_availability': True,
+        })
+
+    can_request_reservation = (
+        request.user.is_student_role
+        and facility_data_scope == 'operational'
+        and facility.status == Facility.Status.AVAILABLE
+    )
+    reservation_form_url = reverse('reservations:create_reservation')
+    request_facility_params = {'facility': facility.pk}
+    if selected_date and selected_date >= today:
+        request_facility_params['date'] = selected_date.isoformat()
+    request_facility_url = reservation_form_url + '?' + urlencode(request_facility_params)
+
+    calendar_weeks = []
+    for week in calendar.Calendar(firstweekday=6).monthdatescalendar(year, month):
+        calendar_week = []
+        for day in week:
+            day_events = sorted(
+                events_by_date.get(day, []),
+                key=lambda event: event['start_time'],
+            )
+            if day.month != month:
+                availability_label = ''
+            elif day < today:
+                availability_label = 'Past date'
+            elif facility.status != Facility.Status.AVAILABLE:
+                availability_label = facility.get_status_display()
+            elif any(event['blocks_availability'] for event in day_events):
+                availability_label = 'Limited'
+            else:
+                availability_label = 'No conflicts'
+            booking_url = ''
+            if can_request_reservation and day.month == month and day >= today and not day_events:
+                booking_url = reservation_form_url + '?' + urlencode({
+                    'facility': facility.pk,
+                    'date': day.isoformat(),
+                })
+            calendar_week.append({
+                'date': day,
+                'in_month': day.month == month,
+                'is_today': day == today,
+                'is_past': day < today,
+                'is_selected_date': day == selected_date,
+                'events': day_events,
+                'availability_label': availability_label,
+                'booking_url': booking_url,
+            })
+        calendar_weeks.append(calendar_week)
+
+    now = timezone.localtime()
+    local_time = now.time().replace(tzinfo=None)
+    under_scheduled_maintenance_now = FacilityMaintenance.objects.using(data_alias).filter(
+        facility_id=facility.pk,
+        maintenance_date=today,
+        status=FacilityMaintenance.Status.SCHEDULED,
+        start_time__lte=local_time,
+        end_time__gt=local_time,
+    ).exists()
+
+    return render(request, 'facilities/facility_detail.html', {
+        'facility': facility,
+        'facility_data_scope': facility_data_scope,
+        'selected_date': selected_date,
+        'can_request_reservation': can_request_reservation,
+        'request_facility_url': request_facility_url,
+        'month_label': month_start.strftime('%B %Y'),
+        'previous_month': previous_month,
+        'next_month': next_month,
+        'weekdays': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        'calendar_weeks': calendar_weeks,
+        'reservation_count': len(reservations),
+        'maintenance_count': len(maintenance_records),
+        'under_scheduled_maintenance_now': under_scheduled_maintenance_now,
+    })
 
 
 @admin_required

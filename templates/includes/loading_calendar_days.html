@@ -1,0 +1,4 @@
+<div class="facility-calendar-grid">
+  {% for day in "1234567" %}<div class="facility-calendar-weekday"><span class="cfrms-skeleton-bone cfrms-skeleton-weekday"></span></div>{% endfor %}
+  {% for week in weeks %}{% for day in "1234567" %}<div class="facility-calendar-day"><span class="cfrms-skeleton-bone cfrms-skeleton-day-number"></span></div>{% endfor %}{% endfor %}
+</div>
