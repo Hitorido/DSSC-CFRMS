@@ -1,0 +1,79 @@
+<div id="cfrmsLoadingProgress" class="cfrms-loading-progress" aria-hidden="true"></div>
+<div id="cfrmsLoadingStatus" class="cfrms-loading-sr" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="cfrmsPageLoader" class="cfrms-page-loader" data-loading-shell="{{ loading_shell|default:'app' }}" data-loading-sidebar="{{ user.is_authenticated|yesno:'true,false' }}" data-loading-view="{% if loading_page == 'profile' %}profile{% elif loading_page == 'login' %}login{% elif loading_page == 'register' %}register{% elif loading_page == 'home' %}dashboard{% elif loading_page == 'settings' %}settings{% elif form or adminform %}form{% elif calendar_weeks %}calendar{% elif paginator or cl or request.resolver_match.app_name == 'admin' %}table{% else %}detail{% endif %}" hidden>
+  <div class="cfrms-skeleton-page" aria-hidden="true">
+    <div class="cfrms-skeleton-heading">
+      <span class="cfrms-skeleton-bone cfrms-skeleton-title"></span>
+      <span class="cfrms-skeleton-bone cfrms-skeleton-subtitle"></span>
+    </div>
+    <div class="settings-layout cfrms-skeleton-settings" data-skeleton-view="settings">
+      <div class="cfrms-card settings-card">
+        <div class="settings-card-icon"><span class="cfrms-skeleton-bone"></span></div>
+        <div class="settings-card-content">
+          <span class="section-eyebrow cfrms-skeleton-bone cfrms-skeleton-text">PERSONALIZE</span>
+          <h2 class="cfrms-skeleton-bone cfrms-skeleton-text">Appearance</h2>
+          <p class="cfrms-skeleton-bone cfrms-skeleton-text">Choose how CFRMS looks on this device.</p>
+          <div class="form-label cfrms-skeleton-bone cfrms-skeleton-text">Theme</div>
+          <div class="form-select settings-theme-select cfrms-skeleton-bone cfrms-skeleton-control">Use device setting</div>
+          <div class="form-text"><span class="cfrms-skeleton-bone cfrms-skeleton-text">Your choice is saved in this browser.</span></div>
+        </div>
+      </div>
+      <div class="cfrms-card settings-card">
+        <div class="settings-card-icon"><span class="cfrms-skeleton-bone"></span></div>
+        <div class="settings-card-content">
+          <span class="section-eyebrow cfrms-skeleton-bone cfrms-skeleton-text">YOUR ACCOUNT</span>
+          <h2 class="cfrms-skeleton-bone cfrms-skeleton-text">Profile information</h2>
+          <p class="cfrms-skeleton-bone cfrms-skeleton-text">Update your name, contact details, department, and profile photo.</p>
+          <span class="btn btn-outline-primary cfrms-skeleton-bone cfrms-skeleton-text"><i class="bi bi-pencil me-1"></i>Edit profile</span>
+        </div>
+      </div>
+      <div class="cfrms-card settings-card">
+        <div class="settings-card-icon"><span class="cfrms-skeleton-bone"></span></div>
+        <div class="settings-card-content">
+          <span class="section-eyebrow cfrms-skeleton-bone cfrms-skeleton-text">SECURITY</span>
+          <h2 class="cfrms-skeleton-bone cfrms-skeleton-text">Password</h2>
+          <p class="cfrms-skeleton-bone cfrms-skeleton-text">Change your password to keep your account secure.</p>
+          <span class="btn btn-outline-primary cfrms-skeleton-bone cfrms-skeleton-text"><i class="bi bi-key me-1"></i>Change password</span>
+        </div>
+      </div>
+    </div>
+    {% include "includes/loading_auth.html" with auth_mode="login" %}
+    {% include "includes/loading_auth.html" with auth_mode="register" %}
+    {% include "includes/loading_profile.html" %}
+    {% include "includes/loading_dashboard.html" %}
+    <div class="cfrms-skeleton-card cfrms-skeleton-table" data-skeleton-view="table">
+      <div class="cfrms-skeleton-toolbar"><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone"></span></div>
+      {% for row in "123456" %}
+      <div class="cfrms-skeleton-row">{% for cell in "1234" %}<span class="cfrms-skeleton-bone"></span>{% endfor %}</div>
+      {% endfor %}
+    </div>
+    <div class="cfrms-skeleton-card cfrms-skeleton-form" data-skeleton-view="form">
+      {% for field in "1234" %}
+      <div class="cfrms-skeleton-field"><span class="cfrms-skeleton-bone cfrms-skeleton-label"></span><span class="cfrms-skeleton-bone cfrms-skeleton-input"></span></div>
+      {% endfor %}
+      <span class="cfrms-skeleton-bone cfrms-skeleton-submit"></span>
+    </div>
+    <div class="cfrms-skeleton-details" data-skeleton-view="detail">
+      {% for card in "12" %}
+      <div class="cfrms-skeleton-card">
+        <span class="cfrms-skeleton-bone cfrms-skeleton-subtitle"></span>
+        {% for row in "12345" %}<div class="cfrms-skeleton-row"><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone"></span></div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="cfrms-card cfrms-skeleton-calendar" data-skeleton-view="calendar">
+      <div class="card-header-bar"><span class="cfrms-skeleton-bone cfrms-skeleton-calendar-heading"></span></div>
+      <div class="p-3 p-md-4">
+        <div class="facility-calendar-toolbar"><span class="cfrms-skeleton-bone cfrms-skeleton-small-action"></span><span class="cfrms-skeleton-bone cfrms-skeleton-month"></span><span class="cfrms-skeleton-bone cfrms-skeleton-small-action"></span></div>
+        <div class="cfrms-skeleton-calendar-legend"><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone"></span></div>
+        <div class="facility-calendar-scroll">
+          {% if dashboard_calendar_weeks %}{% include "includes/loading_calendar_days.html" with weeks=dashboard_calendar_weeks %}
+          {% elif calendar_weeks %}{% include "includes/loading_calendar_days.html" with weeks=calendar_weeks %}
+          {% else %}{% include "includes/loading_calendar_days.html" with weeks="12345" %}{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cfrms-loading-caption"><span class="cfrms-loading-spinner" aria-hidden="true"></span><span data-loading-caption>Loading page…</span></div>
+  <button type="button" class="cfrms-loading-recovery" data-loading-recovery hidden>Taking longer than usual. Show the current page</button>
+</div>

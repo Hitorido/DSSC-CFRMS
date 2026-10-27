@@ -1,0 +1,17 @@
+<div class="cfrms-skeleton-dashboard role-dashboard role-dashboard-{% if user.is_student_role %}student{% elif user.is_faculty_role %}faculty{% elif user.is_admin_role %}admin{% else %}staff{% endif %}" data-skeleton-view="dashboard">
+  {% if user.is_student_role %}
+  <div class="cfrms-card home-welcome mb-4"><div class="p-4 home-welcome-content">{% include "includes/loading_metrics.html" %}</div></div>
+  <div class="cfrms-card upcoming-panel mb-4">
+    <div class="upcoming-panel-heading"><div><span class="section-eyebrow cfrms-skeleton-bone cfrms-skeleton-ink">YOUR SCHEDULE</span><h2 class="cfrms-skeleton-bone cfrms-skeleton-ink">Upcoming reservations</h2></div><span class="cfrms-skeleton-bone cfrms-skeleton-small-action"></span></div>
+    {% if upcoming_reservations %}
+    <div class="upcoming-list">
+      {% for reservation in upcoming_reservations %}<div class="upcoming-item"><span class="cfrms-skeleton-bone upcoming-date"></span><div class="upcoming-info"><span class="cfrms-skeleton-bone"></span><span class="cfrms-skeleton-bone cfrms-skeleton-subtitle"></span></div><span class="cfrms-skeleton-bone cfrms-skeleton-small-action"></span></div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="upcoming-empty"><span class="upcoming-empty-icon"><span class="cfrms-skeleton-bone cfrms-skeleton-fill"></span></span><div><span class="cfrms-skeleton-bone cfrms-skeleton-summary-line"></span><span class="cfrms-skeleton-bone cfrms-skeleton-subtitle mt-2"></span></div><span class="cfrms-skeleton-bone cfrms-skeleton-small-action ms-auto"></span></div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="mb-4">{% include "includes/loading_metrics.html" %}</div>
+  {% endif %}
+</div>

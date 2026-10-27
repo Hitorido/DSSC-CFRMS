@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}{{ facility.name }}{% endblock %}
+
+{% block content %}
+<div class="cfrms-page-header">
+  <h1><i class="bi bi-building me-2"></i>{{ facility.name }}</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'facilities:facility_list' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% endif %}">Facilities</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ facility.name }}</li>
+    </ol>
+  </nav>
+</div>
+
+<section class="cfrms-card facility-detail-summary mb-4" aria-labelledby="facility-summary-heading">
+  <div class="card-header-bar d-flex align-items-center justify-content-between gap-3">
+    <span id="facility-summary-heading"><i class="bi bi-info-circle me-2"></i>Facility Details</span>
+    {% if facility_data_scope == 'analytics_sample' %}
+      <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3">Sample only</span>
+    {% elif facility.status == 'MAINTENANCE' %}
+      <span class="badge badge-maintenance rounded-pill px-3"><i class="bi bi-tools me-1"></i>Under maintenance</span>
+    {% elif facility.status == 'UNAVAILABLE' %}
+      <span class="badge badge-unavailable rounded-pill px-3"><i class="bi bi-x-circle me-1"></i>Unavailable</span>
+    {% elif under_scheduled_maintenance_now %}
+      <span class="badge badge-maintenance rounded-pill px-3"><i class="bi bi-tools me-1"></i>Maintenance in progress</span>
+    {% else %}
+      <span class="badge badge-available rounded-pill px-3"><i class="bi bi-check-circle me-1"></i>Available</span>
+    {% endif %}
+  </div>
+  <div class="p-4">
+    <div class="row g-3 facility-detail-facts">
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Type</span>
+        <strong>{{ facility.facility_type.name }}</strong>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Location</span>
+        <strong><i class="bi bi-geo-alt me-1"></i>{{ facility.location }}</strong>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Capacity</span>
+        <strong><i class="bi bi-people me-1"></i>{{ facility.capacity }} people</strong>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Facility status</span>
+        <strong>{{ facility.get_status_display }}</strong>
+      </div>
+    </div>
+    {% if facility.description %}
+    <p class="facility-detail-description mb-0 mt-3">{{ facility.description }}</p>
+    {% endif %}
+
+    {% if facility.status == 'MAINTENANCE' or under_scheduled_maintenance_now %}
+    <div class="alert alert-warning d-flex align-items-start gap-2 mt-4 mb-0" role="status">
+      <i class="bi bi-exclamation-triangle-fill mt-1" aria-hidden="true"></i>
+      <div>This facility is under maintenance now. The calendar shows scheduled maintenance times for the selected month.</div>
+    </div>
+    {% endif %}
+
+    {% if can_request_reservation %}
+    <div class="mt-4">
+      <a href="{{ request_facility_url }}" class="btn btn-cfrms-primary">
+        <i class="bi bi-calendar2-plus me-1"></i>Request this facility
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="cfrms-card facility-calendar-card" aria-labelledby="facility-calendar-heading">
+  <div class="card-header-bar d-flex align-items-center justify-content-between gap-3">
+    <span id="facility-calendar-heading"><i class="bi bi-calendar3 me-2"></i>Reservations &amp; Availability</span>
+    <span class="badge bg-light text-dark fw-normal">
+      {{ reservation_count }} reservation{{ reservation_count|pluralize }}
+      {% if maintenance_count %}· {{ maintenance_count }} maintenance{% endif %}
+    </span>
+  </div>
+  <div class="p-3 p-md-4">
+    <div class="facility-calendar-toolbar">
+      <a class="btn btn-outline-secondary btn-sm" href="?month={{ previous_month }}" aria-label="Previous month">
+        <i class="bi bi-chevron-left" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Previous</span>
+      </a>
+      <h2>{{ month_label }}</h2>
+      <a class="btn btn-outline-secondary btn-sm" href="?month={{ next_month }}" aria-label="Next month">
+        <span class="d-none d-sm-inline me-1">Next</span><i class="bi bi-chevron-right" aria-hidden="true"></i>
+      </a>
+    </div>
+
+    <div class="facility-calendar-legend" aria-label="Calendar legend">
+      <span><i class="legend-dot legend-open"></i>No active conflicts</span>
+      <span><i class="legend-dot legend-reserved"></i>Reservation</span>
+      <span><i class="legend-dot legend-maintenance"></i>Maintenance</span>
+    </div>
+
+    <p class="facility-calendar-note">
+      Times are local. Pending and approved reservations and scheduled maintenance block those time slots.
+      {% if can_request_reservation %}Select an empty date from today onward to book this facility.{% endif %}
+      “No active conflicts” means no blocking event is recorded for that date; campus opening hours are not modeled.
+    </p>
+
+    <div class="facility-calendar-scroll">
+      <div class="facility-calendar-grid" role="grid" aria-label="{{ month_label }} facility calendar">
+        {% for weekday in weekdays %}
+        <div class="facility-calendar-weekday" role="columnheader">{{ weekday }}</div>
+        {% endfor %}
+
+        {% for week in calendar_weeks %}
+          {% for day in week %}
+          <div id="facility-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_selected_date %} is-selected-date{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
+            {% if day.booking_url %}
+            <a class="facility-calendar-day-action" href="{{ day.booking_url }}" aria-label="Book {{ facility.name }} on {{ day.date|date:'F j, Y' }}">
+              <span>Book this date <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            {% endif %}
+            <div class="facility-calendar-day-head">
+              <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
+              {% if day.in_month and day.availability_label %}
+                <span class="facility-availability{% if day.is_past %} is-past{% elif day.availability_label == 'No conflicts' %} is-open{% elif day.availability_label == 'Limited' %} is-limited{% else %} is-unavailable{% endif %}">
+                  {{ day.availability_label }}
+                </span>
+              {% endif %}
+            </div>
+            {% if day.in_month %}
+            <div class="facility-calendar-events">
+              {% for event in day.events %}
+              {% if event.kind == 'reservation' and event.status_class == 'approved' and event.can_view_details and not day.is_past %}
+              <a class="facility-calendar-event-link" href="{% url 'reservations:reservation_detail' event.reservation_id %}" aria-label="View approved reservation from {{ event.start_time|time:'H:i' }} to {{ event.end_time|time:'H:i' }}">
+              {% endif %}
+              <div class="facility-calendar-event event-{{ event.status_class }}" title="{{ event.start_time|time:'H:i' }}–{{ event.end_time|time:'H:i' }} · {{ event.label }}">
+                <strong>{{ event.start_time|time:'H:i' }}–{{ event.end_time|time:'H:i' }}</strong>
+                <span>{{ event.label|truncatechars:24 }}</span>
+              </div>
+              {% if event.kind == 'reservation' and event.status_class == 'approved' and event.can_view_details and not day.is_past %}
+              </a>
+              {% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

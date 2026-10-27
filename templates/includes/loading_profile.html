@@ -1,0 +1,46 @@
+<div class="row g-4 align-items-start cfrms-skeleton-profile" data-skeleton-view="profile">
+  <div class="col-12 col-lg-4">
+    <div class="cfrms-card profile-summary-card">
+      <div class="profile-summary-cover"><span class="cfrms-skeleton-bone cfrms-skeleton-fill"></span></div>
+      <div class="profile-summary-body">
+        <div class="profile-summary-avatar"><span class="cfrms-skeleton-bone cfrms-skeleton-fill"></span></div>
+        <span class="cfrms-skeleton-bone cfrms-skeleton-profile-name"></span>
+        <span class="cfrms-skeleton-bone cfrms-skeleton-profile-username"></span>
+        <span class="cfrms-skeleton-bone cfrms-skeleton-profile-role"></span>
+        {% if user.department %}<p class="profile-summary-detail"><span class="cfrms-skeleton-bone cfrms-skeleton-ink mx-auto">College and course</span></p>{% endif %}
+        {% if user.bio %}<p class="profile-summary-bio"><span class="cfrms-skeleton-bone cfrms-skeleton-ink mx-auto">A short introduction about me.</span></p>{% endif %}
+        <div class="profile-settings-link"><span class="cfrms-skeleton-bone cfrms-skeleton-ink mx-auto">Account settings</span></div>
+      </div>
+    </div>
+    <div class="profile-privacy-note"><span class="cfrms-skeleton-bone cfrms-skeleton-ink">Your account role and access permissions can only be changed by an administrator.</span></div>
+  </div>
+  <div class="col-12 col-lg-8">
+    <div class="cfrms-card profile-editor-card">
+      <div class="profile-editor-heading"><div><span class="section-eyebrow cfrms-skeleton-bone cfrms-skeleton-ink">ACCOUNT DETAILS</span><h2 class="cfrms-skeleton-bone cfrms-skeleton-ink">Edit your profile</h2></div></div>
+      <div class="profile-form">
+        <div class="profile-photo-editor">
+          <div class="profile-photo-preview"><span class="cfrms-skeleton-bone cfrms-skeleton-fill"></span></div>
+          <div class="profile-photo-controls">
+            <div class="form-label cfrms-skeleton-bone cfrms-skeleton-ink">Profile photo</div>
+            <div class="form-control profile-file-input cfrms-skeleton-bone cfrms-skeleton-control">Choose a file</div>
+            <div class="form-text"><span class="cfrms-skeleton-bone cfrms-skeleton-ink">Use a JPG, PNG, or WebP image up to 5 MB. Square images look best.</span></div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-sm-6">{% include "includes/loading_field.html" with label="First name" field_class="cfrms-skeleton-field-wrap" %}</div>
+          <div class="col-sm-6">{% include "includes/loading_field.html" with label="Last name" field_class="cfrms-skeleton-field-wrap" %}</div>
+          <div class="col-sm-6">{% include "includes/loading_field.html" with label="Email address" field_class="cfrms-skeleton-field-wrap" %}</div>
+          <div class="col-sm-6">{% include "includes/loading_field.html" with label="Phone number (optional)" field_class="cfrms-skeleton-field-wrap" %}</div>
+          <div class="col-sm-5">{% include "includes/loading_field.html" with label="System role" field_class="cfrms-skeleton-field-wrap" help_text="Contact an administrator if your role is incorrect." %}</div>
+          <div class="col-sm-7">{% include "includes/loading_field.html" with label="Department or course" field_class="cfrms-skeleton-field-wrap" %}</div>
+          <div class="col-12">
+            <div class="form-label cfrms-skeleton-bone cfrms-skeleton-ink">About me (optional)</div>
+            <span class="cfrms-skeleton-bone cfrms-skeleton-profile-bio"></span>
+            <div class="form-text"><span class="cfrms-skeleton-bone cfrms-skeleton-ink">A short introduction, up to 280 characters.</span></div>
+          </div>
+        </div>
+        <div class="profile-form-footer"><span class="cfrms-skeleton-bone cfrms-skeleton-ink">Username: student</span><span class="btn btn-cfrms-primary cfrms-skeleton-bone cfrms-skeleton-ink">Save profile</span></div>
+      </div>
+    </div>
+  </div>
+</div>

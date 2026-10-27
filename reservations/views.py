@@ -5,16 +5,20 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_time
+from django.views.decorators.http import require_GET, require_http_methods
+from urllib.parse import urlencode
 
 from accounts.decorators import reservation_reviewer_required, requester_required
 from accounts.models import User
 from config.list_utils import build_search_q, filter_query_string, paginate_queryset
 from facilities.models import Facility
 from notifications.models import Notification
-from .forms import ReservationForm
+from .forms import ReservationAppealForm, ReservationForm
 from .models import Reservation
 
 
@@ -61,7 +65,11 @@ def my_reservations_view(request):
 
     if status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
-    parsed_date = parse_date(reservation_date) if reservation_date else None
+    try:
+        parsed_date = parse_date(reservation_date) if reservation_date else None
+    except ValueError:
+        parsed_date = None
+    reservation_date = parsed_date.isoformat() if parsed_date else ''
     if parsed_date:
         reservations = reservations.filter(reservation_date=parsed_date)
     if search:
@@ -253,6 +261,106 @@ def reservation_report_view(request):
     return render(request, 'reservations/reservation_report.html', context)
 
 
+@require_GET
+@login_required
+@requester_required
+def facility_availability_view(request):
+    """Return blocking reservations and maintenance for one facility/date."""
+    facility_value = request.GET.get('facility', '')
+    target_date = parse_date(request.GET.get('date', ''))
+    if not facility_value.isdecimal() or len(facility_value) > 18 or target_date is None:
+        return JsonResponse({'error': 'Choose a valid facility and date.'}, status=400)
+
+    try:
+        facility = Facility.objects.using('default').get(pk=int(facility_value))
+    except Facility.DoesNotExist:
+        return JsonResponse({'error': 'The selected facility could not be found.'}, status=404)
+
+    requested_start = parse_time(request.GET.get('start_time', ''))
+    requested_end = parse_time(request.GET.get('end_time', ''))
+    can_check_requested_time = bool(
+        requested_start and requested_end and requested_start < requested_end
+    )
+
+    events = []
+    reservation_status_labels = dict(Reservation.Status.choices)
+    reservations = Reservation.objects.using('default').filter(
+        facility_id=facility.pk,
+        reservation_date=target_date,
+        status__in=Reservation.BLOCKING_STATUSES,
+    ).order_by('start_time', 'end_time')
+    editing_value = request.GET.get('reservation', '')
+    if editing_value:
+        if not editing_value.isdecimal() or len(editing_value) > 18:
+            return JsonResponse({'error': 'Choose a valid reservation to edit.'}, status=400)
+        editing_reservation = get_object_or_404(
+            Reservation.objects.using('default'),
+            pk=int(editing_value),
+            requested_by=request.user,
+        )
+        if not editing_reservation.can_edit:
+            return JsonResponse({'error': 'This reservation can no longer be edited.'}, status=403)
+        reservations = reservations.exclude(pk=editing_reservation.pk)
+    for reservation in reservations:
+        conflicts_requested_time = (
+            can_check_requested_time
+            and requested_start < reservation.end_time
+            and requested_end > reservation.start_time
+        )
+        events.append({
+            'kind': 'reservation',
+            'label': f"{reservation_status_labels[reservation.status]} reservation",
+            'start_time': reservation.start_time.strftime('%H:%M'),
+            'end_time': reservation.end_time.strftime('%H:%M'),
+            'conflicts_requested_time': conflicts_requested_time,
+        })
+
+    from facilities.models import FacilityMaintenance
+
+    maintenance_records = FacilityMaintenance.objects.using('default').filter(
+        facility_id=facility.pk,
+        maintenance_date=target_date,
+        status=FacilityMaintenance.Status.SCHEDULED,
+    ).order_by('start_time', 'end_time')
+    for maintenance in maintenance_records:
+        conflicts_requested_time = (
+            can_check_requested_time
+            and requested_start < maintenance.end_time
+            and requested_end > maintenance.start_time
+        )
+        events.append({
+            'kind': 'maintenance',
+            'label': 'Scheduled maintenance',
+            'start_time': maintenance.start_time.strftime('%H:%M'),
+            'end_time': maintenance.end_time.strftime('%H:%M'),
+            'conflicts_requested_time': conflicts_requested_time,
+        })
+
+    events.sort(key=lambda event: (event['start_time'], event['end_time']))
+    calendar_url = reverse('facilities:facility_detail', args=[facility.pk])
+    calendar_url += '?' + urlencode({
+        'month': target_date.strftime('%Y-%m'),
+        'date': target_date.isoformat(),
+    })
+    calendar_url += f'#facility-calendar-day-{target_date.isoformat()}'
+
+    selected_time_conflict = None
+    if can_check_requested_time:
+        selected_time_conflict = any(
+            event['conflicts_requested_time'] for event in events
+        )
+
+    return JsonResponse({
+        'facility_name': facility.name,
+        'facility_available': facility.status == Facility.Status.AVAILABLE,
+        'facility_status': facility.get_status_display(),
+        'date': target_date.isoformat(),
+        'events': events,
+        'selected_time_conflict': selected_time_conflict,
+        'calendar_url': calendar_url,
+    })
+
+
 @login_required
 @requester_required
 def create_reservation_view(request):
@@ -308,6 +416,12 @@ def create_reservation_view(request):
         selected_facility = request.GET.get('facility', '')
         if selected_facility.isdecimal() and len(selected_facility) <= 18:
             initial['facility'] = int(selected_facility)
+        try:
+            selected_date = parse_date(request.GET.get('date', ''))
+        except ValueError:
+            selected_date = None
+        if selected_date and 2000 <= selected_date.year <= 2100 and selected_date >= timezone.localdate():
+            initial['reservation_date'] = selected_date.isoformat()
         form = ReservationForm(
             initial=initial,
             facility_queryset=bookable_facilities,
@@ -316,6 +430,124 @@ def create_reservation_view(request):
     return render(request, 'reservations/reservation_form.html', {
         'form': form,
         'has_bookable_facilities': has_bookable_facilities,
+    })
+
+
+@login_required
+@requester_required
+@require_http_methods(['GET', 'POST'])
+@transaction.atomic
+def edit_reservation_view(request, pk):
+    """Update an owner's upcoming booking and send changes back for review."""
+    reservations = Reservation.objects.using('default').select_related('facility')
+    if request.method == 'POST':
+        reservations = reservations.select_for_update()
+    reservation = get_object_or_404(reservations, pk=pk)
+    if reservation.requested_by_id != request.user.pk:
+        raise PermissionDenied('You can only edit your own reservations.')
+    if not reservation.can_edit:
+        messages.error(request, 'Only pending or approved reservations that have not started can be edited.')
+        return redirect('reservations:reservation_detail', pk=pk)
+
+    was_approved = reservation.is_approved
+    current_facility_unavailable = reservation.facility.status != Facility.Status.AVAILABLE
+    bookable_facilities = Facility.objects.using('default').filter(status=Facility.Status.AVAILABLE)
+    has_bookable_facilities = bookable_facilities.exists()
+    initial = {
+        'reservation_date': reservation.reservation_date.isoformat(),
+        'start_time': reservation.start_time.strftime('%H:%M'),
+        'end_time': reservation.end_time.strftime('%H:%M'),
+    }
+    form = ReservationForm(
+        request.POST if request.method == 'POST' else None,
+        instance=reservation,
+        initial=initial,
+        facility_queryset=bookable_facilities,
+    )
+    if request.method == 'POST' and form.is_valid():
+        if not form.has_changed():
+            messages.info(request, 'No changes were made to your reservation.')
+            return redirect('reservations:reservation_detail', pk=pk)
+        updated = form.save(commit=False)
+        updated.status = Reservation.Status.PENDING
+        updated.reviewed_by = None
+        updated.reviewed_at = None
+        updated.rejection_reason = ''
+        updated.completed_by = None
+        updated.completed_at = None
+        try:
+            updated.save()
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, 'Your reservation has been updated and is pending review.')
+            return redirect('reservations:reservation_detail', pk=pk)
+
+    return render(request, 'reservations/reservation_form.html', {
+        'form': form,
+        'reservation': reservation,
+        'is_edit': True,
+        'was_approved': was_approved,
+        'current_facility_unavailable': current_facility_unavailable,
+        'has_bookable_facilities': has_bookable_facilities,
+    })
+
+
+@login_required
+@requester_required
+@require_http_methods(['GET', 'POST'])
+@transaction.atomic
+def appeal_reservation_view(request, pk):
+    """Let an owner correct and appeal a declined request up to three times."""
+    reservations = Reservation.objects.using('default').select_related('facility')
+    if request.method == 'POST':
+        reservations = reservations.select_for_update()
+    reservation = get_object_or_404(reservations, pk=pk)
+    if reservation.requested_by_id != request.user.pk:
+        raise PermissionDenied('You can only appeal your own reservations.')
+    if not reservation.can_appeal:
+        message = (
+            'You have used all three appeals for this reservation.'
+            if reservation.is_rejected else 'Only declined reservations can be appealed.'
+        )
+        messages.error(request, message)
+        return redirect('reservations:reservation_detail', pk=pk)
+
+    appeal_number = reservation.appeal_count + 1
+    previous_decline_reason = reservation.rejection_reason
+    current_facility_unavailable = reservation.facility.status != Facility.Status.AVAILABLE
+    bookable_facilities = Facility.objects.using('default').filter(status=Facility.Status.AVAILABLE)
+    form = ReservationAppealForm(
+        request.POST if request.method == 'POST' else None,
+        instance=reservation,
+        initial={
+            'reservation_date': reservation.reservation_date.isoformat(),
+            'start_time': reservation.start_time.strftime('%H:%M'),
+            'end_time': reservation.end_time.strftime('%H:%M'),
+        },
+        facility_queryset=bookable_facilities,
+    )
+    if request.method == 'POST' and form.is_valid():
+        try:
+            reservation.appeal(form.cleaned_data['appeal_reason'])
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(
+                request,
+                f'Appeal {reservation.appeal_count} of {Reservation.MAX_APPEALS} submitted. '
+                'Your reservation is pending review.',
+            )
+            return redirect('reservations:reservation_detail', pk=pk)
+
+    return render(request, 'reservations/reservation_form.html', {
+        'form': form,
+        'reservation': reservation,
+        'is_appeal': True,
+        'appeal_number': appeal_number,
+        'previous_decline_reason': previous_decline_reason,
+        'current_facility_unavailable': current_facility_unavailable,
+        'has_bookable_facilities': bookable_facilities.exists(),
     })
 
 
@@ -363,6 +595,7 @@ def reservation_detail_view(request, pk):
     )
     return render(request, 'reservations/reservation_detail.html', {
         'reservation': reservation,
+        'appeals': reservation.appeals.all(),
         'can_complete': (
             reservation.status == Reservation.Status.APPROVED
             and timezone.now() >= scheduled_end

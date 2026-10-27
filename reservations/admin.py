@@ -1,5 +1,15 @@
 from django.contrib import admin
-from .models import Reservation
+from .models import Reservation, ReservationAppeal
+
+
+class ReservationAppealInline(admin.TabularInline):
+    model = ReservationAppeal
+    extra = 0
+    can_delete = False
+    readonly_fields = ('attempt', 'reason', 'previous_decline_reason', 'created_at')
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Reservation)
@@ -26,4 +36,5 @@ class ReservationAdmin(admin.ModelAdmin):
     )
     date_hierarchy = 'reservation_date'
     ordering = ('-reservation_date', '-start_time')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'appeal_count')
+    inlines = (ReservationAppealInline,)

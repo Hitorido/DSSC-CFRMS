@@ -7,6 +7,7 @@ urlpatterns = [
     path('create/', views.facility_create_view, name='facility_create'),
     # Facility list (all authenticated users)
     path('', views.facility_list_view, name='facility_list'),
+    path('<int:pk>/', views.facility_detail_view, name='facility_detail'),
 
     # Maintenance management (STAFF / ADMIN only)
     path('maintenance/', views.maintenance_list_view, name='maintenance_list'),

@@ -26,11 +26,13 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
   >
-  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}?v=16">
+  <link rel="stylesheet" href="{% static 'css/cfrms.css' %}?v=55">
+  {% include "includes/loading_head.html" %}
 </head>
 <body>
+{% include "includes/loading_shell.html" with loading_shell="auth" loading_page="login" %}
 
-<div class="cfrms-login-wrapper cfrms-auth-page cfrms-auth-login">
+<div class="cfrms-login-wrapper cfrms-auth-page cfrms-auth-login" data-loading-root data-loading-page="login">
   <div class="cfrms-auth-shell">
     <aside class="cfrms-auth-visual" aria-label="Campus facility reservation information">
       <div class="cfrms-auth-orbit cfrms-auth-orbit-one" aria-hidden="true"></div>

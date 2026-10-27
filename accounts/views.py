@@ -1,4 +1,5 @@
-from datetime import date
+import calendar
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth import login
@@ -52,6 +53,66 @@ def home_view(request):
         reservation_qs = Reservation.objects.none()
 
     today = timezone.localdate()
+    calendar_month_value = request.GET.get('calendar_month', '')
+    try:
+        calendar_year, calendar_month = (int(part) for part in calendar_month_value.split('-', 1))
+        if (
+            len(calendar_month_value) != 7
+            or not (1 <= calendar_month <= 12)
+            or not (2000 <= calendar_year <= 2100)
+        ):
+            raise ValueError
+    except (TypeError, ValueError):
+        calendar_year, calendar_month = today.year, today.month
+
+    calendar_month_start = date(calendar_year, calendar_month, 1)
+    calendar_month_end = date(
+        calendar_year,
+        calendar_month,
+        calendar.monthrange(calendar_year, calendar_month)[1],
+    )
+    calendar_previous_month = (calendar_month_start - timedelta(days=1)).strftime('%Y-%m')
+    calendar_next_month = (calendar_month_end + timedelta(days=1)).strftime('%Y-%m')
+    calendar_events_by_date = {}
+    calendar_reservations = reservation_qs.filter(
+        reservation_date__range=(calendar_month_start, calendar_month_end),
+    ).select_related('facility', 'requested_by').order_by('reservation_date', 'start_time')
+    for reservation in calendar_reservations:
+        can_view_details = (
+            user.is_student_role and reservation.requested_by_id == user.pk
+        ) or (
+            user.is_reservation_reviewer
+            and reservation.requested_by_id != user.pk
+            and reservation.requested_by.is_student_role
+        )
+        requester_name = reservation.requested_by.get_full_name() or reservation.requested_by.username
+        calendar_events_by_date.setdefault(reservation.reservation_date, []).append({
+            'reservation_id': reservation.pk,
+            'facility_name': reservation.facility.name,
+            'requester_name': requester_name if user.is_reservation_reviewer else '',
+            'start_time': reservation.start_time,
+            'end_time': reservation.end_time,
+            'label': reservation.get_status_display(),
+            'status_class': reservation.status.lower(),
+            'can_view_details': can_view_details,
+        })
+
+    dashboard_calendar_weeks = []
+    for week in calendar.Calendar(firstweekday=6).monthdatescalendar(calendar_year, calendar_month):
+        dashboard_calendar_weeks.append([
+            {
+                'date': day,
+                'in_month': day.month == calendar_month,
+                'is_today': day == today,
+                'is_past': day < today,
+                'events': sorted(
+                    calendar_events_by_date.get(day, []),
+                    key=lambda event: event['start_time'],
+                ),
+            }
+            for day in week
+        ])
+
     reservation_summary = reservation_qs.aggregate(
         total=Count('pk'),
         pending=Count('pk', filter=Q(status=Reservation.Status.PENDING)),
@@ -78,6 +139,14 @@ def home_view(request):
         'dashboard_subtitle': 'Your campus spaces, all in one place.',
         'dashboard_role': 'requester',
         'show_dashboard_analytics': show_dashboard_analytics,
+        'dashboard_calendar_month': calendar_month_start.strftime('%B %Y'),
+        'dashboard_calendar_previous_month': calendar_previous_month,
+        'dashboard_calendar_next_month': calendar_next_month,
+        'dashboard_calendar_weeks': dashboard_calendar_weeks,
+        'dashboard_calendar_weekdays': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        'dashboard_calendar_reservation_count': sum(
+            len(events) for events in calendar_events_by_date.values()
+        ),
     }
 
     if show_dashboard_analytics:
@@ -187,6 +256,12 @@ def home_view(request):
     if user.is_student_role:
         user_reservations = reservation_qs
         local_now = timezone.localtime()
+        context['home_booking_facilities'] = list(
+            Facility.objects.using('default')
+            .filter(status=Facility.Status.AVAILABLE)
+            .select_related('facility_type')
+            .order_by('name')
+        )
         context['reservation_summary'] = reservation_summary
         context['upcoming_reservations'] = user_reservations.filter(
             Q(reservation_date__gt=local_now.date())

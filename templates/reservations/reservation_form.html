@@ -1,17 +1,21 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}New Reservation{% endblock %}
+{% block title %}{% if is_appeal %}Appeal Reservation #{{ reservation.pk }}{% elif is_edit %}Edit Reservation #{{ reservation.pk }}{% else %}New Reservation{% endif %}{% endblock %}
 
 {% block content %}
 <div class="cfrms-page-header">
-  <h1><i class="bi bi-plus-circle me-2"></i>New Reservation Request</h1>
+  <h1><i class="bi {% if is_appeal %}bi-arrow-counterclockwise{% elif is_edit %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2" aria-hidden="true"></i>{% if is_appeal %}Appeal Reservation #{{ reservation.pk }}{% elif is_edit %}Edit Reservation #{{ reservation.pk }}{% else %}New Reservation Request{% endif %}</h1>
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
       <li class="breadcrumb-item">
         <a href="{% url 'reservations:my_reservations' %}">My Reservations</a>
       </li>
-      <li class="breadcrumb-item active" aria-current="page">New Request</li>
+      {% if is_edit or is_appeal %}
+      <li class="breadcrumb-item"><a href="{% url 'reservations:reservation_detail' reservation.pk %}">Reservation #{{ reservation.pk }}</a></li>
+      {% endif %}
+      <li class="breadcrumb-item active" aria-current="page">{% if is_appeal %}Appeal{% elif is_edit %}Edit{% else %}New Request{% endif %}</li>
     </ol>
   </nav>
 </div>
@@ -24,6 +28,26 @@
         <i class="bi bi-calendar2-plus me-2"></i>Reservation Details
       </div>
       <div class="p-4">
+
+        {% if is_appeal %}
+        <div class="alert alert-info" role="note">
+          <strong>Appeal {{ appeal_number }} of {{ reservation.MAX_APPEALS }}</strong>
+          <p class="mb-0 mt-1">Explain why your request should be reconsidered. You can correct the booking details below. Submitting returns this reservation to Pending for review.</p>
+        </div>
+        {% if previous_decline_reason %}
+        <div class="alert alert-light border">
+          <strong>Reason for decline</strong>
+          <p class="mb-0 mt-1 reservation-appeal-reason">{{ previous_decline_reason }}</p>
+        </div>
+        {% endif %}
+        {% elif is_edit %}
+        <div class="alert alert-info" role="note">
+          {% if was_approved %}Saving changes will return this approved reservation to <strong>Pending</strong> for review.{% else %}Update your booking below. Your changes will be reviewed by staff.{% endif %}
+        </div>
+        {% endif %}
+        {% if current_facility_unavailable %}
+        <div class="alert alert-warning" role="status">Your current facility is unavailable. Choose an available facility to save your changes.</div>
+        {% endif %}
 
         {% if not has_bookable_facilities %}
         <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
@@ -95,59 +119,187 @@
           </div>
 
           {# ── Date ─────────────────────────────────────────────── #}
-          <div class="mb-3">
-            <label for="{{ form.reservation_date.id_for_label }}" class="form-label">
-              <i class="bi bi-calendar-date me-1"></i>{{ form.reservation_date.label }}
+          {% if is_appeal %}
+          <div class="mb-4">
+            <label for="{{ form.appeal_reason.id_for_label }}" class="form-label">
+              <i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>{{ form.appeal_reason.label }} <span class="text-danger">*</span>
             </label>
-            <input type="date"
-                   name="{{ form.reservation_date.html_name }}"
-                   id="{{ form.reservation_date.id_for_label }}"
-                   class="form-control{% if form.reservation_date.errors %} is-invalid{% endif %}"
-                   value="{{ form.reservation_date.value|default:'' }}"
-                   required>
-            {% if form.reservation_date.errors %}
-              <div class="invalid-feedback">{{ form.reservation_date.errors.0 }}</div>
-            {% endif %}
+            <textarea name="{{ form.appeal_reason.html_name }}" id="{{ form.appeal_reason.id_for_label }}"
+                      class="form-control{% if form.appeal_reason.errors %} is-invalid{% endif %}"
+                      rows="4" maxlength="2000" required
+                      aria-describedby="reservationAppealHelp{% if form.appeal_reason.errors %} reservationAppealError{% endif %}"
+                      placeholder="Explain your appeal and any changes made to address the decline.">{{ form.appeal_reason.value|default:'' }}</textarea>
+            {% if form.appeal_reason.errors %}<div id="reservationAppealError" class="invalid-feedback">{{ form.appeal_reason.errors.0 }}</div>{% endif %}
+            <div id="reservationAppealHelp" class="form-text">{{ form.appeal_reason.help_text }} Maximum 2,000 characters.</div>
           </div>
+          {% endif %}
 
-          {# ── Time range ───────────────────────────────────────── #}
-          <div class="row g-3 mb-4">
-            <div class="col-6">
-              <label for="{{ form.start_time.id_for_label }}" class="form-label">
-                <i class="bi bi-clock me-1"></i>{{ form.start_time.label }}
-              </label>
-              <input type="time"
-                     name="{{ form.start_time.html_name }}"
-                     id="{{ form.start_time.id_for_label }}"
-                     class="form-control{% if form.start_time.errors %} is-invalid{% endif %}"
-                     value="{{ form.start_time.value|default:'' }}"
-                     required>
-              {% if form.start_time.errors %}
-                <div class="invalid-feedback">{{ form.start_time.errors.0 }}</div>
-              {% endif %}
+          <div class="reservation-schedule mb-4" id="reservationSchedule">
+            <label for="reservationScheduleToggle" class="form-label">
+              <i class="bi bi-calendar2-week me-1" aria-hidden="true"></i>Date and time
+            </label>
+            <button type="button"
+                    id="reservationScheduleToggle"
+                    class="reservation-schedule-trigger{% if form.reservation_date.errors or form.start_time.errors or form.end_time.errors %} is-invalid{% endif %}"
+                    aria-expanded="false"
+                    aria-controls="reservationSchedulePopover">
+              <span class="reservation-schedule-icon" aria-hidden="true"><i class="bi bi-calendar3"></i></span>
+              <span class="reservation-schedule-summary">
+                <strong id="reservationScheduleSummary">Choose date and time</strong>
+                <small id="reservationScheduleHint">Select a date, then set when your reservation starts and ends.</small>
+              </span>
+              <i class="bi bi-chevron-down reservation-schedule-chevron" aria-hidden="true"></i>
+            </button>
+            <div id="reservationScheduleError" class="reservation-schedule-error" role="alert" hidden></div>
+
+            <div id="reservationSchedulePopover" class="reservation-schedule-popover" hidden>
+              <div id="reservationScheduleDateStep" class="reservation-schedule-step">
+                <div class="reservation-schedule-step-heading">
+                  <span>Step 1 of 2</span>
+                  <strong>Choose a date</strong>
+                </div>
+                <label for="{{ form.reservation_date.id_for_label }}" id="reservationDateLabel" class="form-label">
+                  <i class="bi bi-calendar-date me-1" aria-hidden="true"></i>{{ form.reservation_date.label }}
+                </label>
+                <input type="date"
+                       name="{{ form.reservation_date.html_name }}"
+                       id="{{ form.reservation_date.id_for_label }}"
+                       class="form-control reservation-calendar-native{% if form.reservation_date.errors %} is-invalid{% endif %}"
+                       value="{{ form.reservation_date.value|default:'' }}"
+                       min="{% now 'Y-m-d' %}"{% if form.reservation_date.errors %}
+                       aria-describedby="reservationDateError"{% endif %}>
+                {% if form.reservation_date.errors %}
+                  <div id="reservationDateError" class="invalid-feedback">{{ form.reservation_date.errors.0 }}</div>
+                {% endif %}
+                <div id="reservationDateCalendar" class="reservation-date-calendar" hidden>
+                  <div class="reservation-date-toolbar">
+                    <strong id="reservationCalendarMonth" data-calendar-month aria-live="polite"></strong>
+                    <div class="reservation-date-navigation">
+                      <button type="button" data-calendar-previous aria-label="Previous month"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m10 4-4 4 4 4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                      <button type="button" data-calendar-next aria-label="Next month"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m6 4 4 4-4 4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    </div>
+                  </div>
+                  <div class="reservation-date-weekdays" aria-hidden="true">
+                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                  </div>
+                  <div class="reservation-date-days" data-calendar-days role="group" aria-labelledby="reservationCalendarMonth"></div>
+                  <div class="reservation-date-footer">
+                    <span><i aria-hidden="true"></i>Today</span>
+                    <button type="button" data-calendar-today>Go to today</button>
+                  </div>
+                </div>
+                <div class="form-text">Choose a date to continue to the time selection.</div>
+              </div>
+
+              <div id="reservationScheduleTimeStep" class="reservation-schedule-step" hidden>
+                <div class="reservation-schedule-step-heading">
+                  <span>Step 2 of 2</span>
+                  <strong id="reservationScheduleSelectedDate"></strong>
+                  <button type="button" id="reservationScheduleChangeDate" class="btn btn-link btn-sm">Change date</button>
+                </div>
+                <div class="row g-3">
+                  <div class="col-12 col-sm-6">
+                    <label for="{{ form.start_time.id_for_label }}" id="reservationStartTimeLabel" class="form-label">
+                      <i class="bi bi-clock me-1" aria-hidden="true"></i>{{ form.start_time.label }}
+                    </label>
+                    <input type="time"
+                           name="{{ form.start_time.html_name }}"
+                           id="{{ form.start_time.id_for_label }}"
+                           class="form-control reservation-time-native{% if form.start_time.errors %} is-invalid{% endif %}"
+                           value="{{ form.start_time.value|default:'' }}"{% if form.start_time.errors %}
+                           aria-describedby="reservationStartTimeError"{% endif %}>
+                    <button type="button" id="reservationStartTimeToggle" class="reservation-time-trigger" aria-expanded="false" aria-controls="reservationTimePicker" hidden>
+                      <span data-time-display>Choose time</span>
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 5.5V10l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    {% if form.start_time.errors %}
+                      <div id="reservationStartTimeError" class="invalid-feedback">{{ form.start_time.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label for="{{ form.end_time.id_for_label }}" id="reservationEndTimeLabel" class="form-label">
+                      <i class="bi bi-clock-history me-1" aria-hidden="true"></i>{{ form.end_time.label }}
+                    </label>
+                    <input type="time"
+                           name="{{ form.end_time.html_name }}"
+                           id="{{ form.end_time.id_for_label }}"
+                           class="form-control reservation-time-native{% if form.end_time.errors %} is-invalid{% endif %}"
+                           value="{{ form.end_time.value|default:'' }}"{% if form.end_time.errors %}
+                           aria-describedby="reservationEndTimeError"{% endif %}>
+                    <button type="button" id="reservationEndTimeToggle" class="reservation-time-trigger" aria-expanded="false" aria-controls="reservationTimePicker" hidden>
+                      <span data-time-display>Choose time</span>
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 5.5V10l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    {% if form.end_time.errors %}
+                      <div id="reservationEndTimeError" class="invalid-feedback">{{ form.end_time.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+                <div id="reservationDuration" class="reservation-duration" role="status" aria-live="polite" aria-atomic="true">
+                  <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                  <span>
+                    <small id="reservationDurationLabel">Booking duration</small>
+                    <strong id="reservationDurationValue">Select both times to see the total.</strong>
+                  </span>
+                </div>
+                <div id="reservationTimePicker" class="reservation-time-picker" role="group" aria-labelledby="reservationTimePickerTitle" hidden>
+                  <div class="reservation-time-picker-heading">
+                    <div>
+                      <strong id="reservationTimePickerTitle" data-time-title>Start time</strong>
+                      <span data-time-preview aria-live="polite"></span>
+                    </div>
+                    <button type="button" class="reservation-time-close" data-time-cancel aria-label="Close time selection"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="m5 5 8 8M13 5l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                  </div>
+                  <div class="reservation-time-columns">
+                    <div>
+                      <span id="reservationTimeHourLabel" class="reservation-time-column-label">Hour</span>
+                      <div class="reservation-time-options" data-time-options="hour" role="group" aria-labelledby="reservationTimeHourLabel"></div>
+                    </div>
+                    <div>
+                      <span id="reservationTimeMinuteLabel" class="reservation-time-column-label">Minute</span>
+                      <div class="reservation-time-options" data-time-options="minute" role="group" aria-labelledby="reservationTimeMinuteLabel"></div>
+                    </div>
+                    <div>
+                      <span id="reservationTimePeriodLabel" class="reservation-time-column-label">AM / PM</span>
+                      <div class="reservation-time-options is-period" data-time-options="period" role="group" aria-labelledby="reservationTimePeriodLabel"></div>
+                    </div>
+                  </div>
+                  <p class="reservation-time-error" data-time-error role="alert" hidden></p>
+                  <div class="reservation-time-picker-actions">
+                    <button type="button" class="reservation-time-cancel" data-time-cancel>Cancel</button>
+                    <button type="button" class="reservation-time-apply" data-time-apply>Use time <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m3.5 8 3 3 6-6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  </div>
+                </div>
+                <div class="reservation-schedule-popover-footer">
+                  <span>Choose the time range for this date.</span>
+                  <button type="button" id="reservationScheduleDone" class="btn btn-cfrms-primary btn-sm">Done</button>
+                </div>
+              </div>
             </div>
-            <div class="col-6">
-              <label for="{{ form.end_time.id_for_label }}" class="form-label">
-                <i class="bi bi-clock-history me-1"></i>{{ form.end_time.label }}
-              </label>
-              <input type="time"
-                     name="{{ form.end_time.html_name }}"
-                     id="{{ form.end_time.id_for_label }}"
-                     class="form-control{% if form.end_time.errors %} is-invalid{% endif %}"
-                     value="{{ form.end_time.value|default:'' }}"
-                     required>
-              {% if form.end_time.errors %}
-                <div class="invalid-feedback">{{ form.end_time.errors.0 }}</div>
-              {% endif %}
+
+            <div id="facilityAvailability" class="reservation-availability" role="status" aria-live="polite" hidden>
+              <div class="reservation-availability-header">
+                <strong id="facilityAvailabilityMessage"></strong>
+                <a id="facilityCalendarLink" href="#" target="_blank" rel="noopener" hidden>
+                  <i class="bi bi-calendar3 me-1" aria-hidden="true"></i>Open this date in the facility calendar
+                </a>
+              </div>
+              <ul id="facilityAvailabilityEvents" class="reservation-availability-events" hidden></ul>
             </div>
           </div>
+          <noscript>
+            <style>
+              #reservationScheduleToggle { display: none; }
+              #reservationSchedulePopover[hidden] { display: block !important; }
+              #reservationScheduleTimeStep[hidden] { display: block !important; }
+            </style>
+          </noscript>
 
-          {# ── Actions ──────────────────────────────────────────── #}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-cfrms-primary" {% if not has_bookable_facilities %}disabled{% endif %}>
-              <i class="bi bi-send me-1"></i>Submit Request
+              <i class="bi {% if is_appeal %}bi-arrow-counterclockwise{% elif is_edit %}bi-check2-circle{% else %}bi-send{% endif %} me-1" aria-hidden="true"></i>{% if is_appeal %}Submit Appeal{% elif is_edit %}Save Changes{% else %}Submit Request{% endif %}
             </button>
-            <a href="{% url 'reservations:my_reservations' %}"
+            <a href="{% if is_edit or is_appeal %}{% url 'reservations:reservation_detail' reservation.pk %}{% else %}{% url 'reservations:my_reservations' %}{% endif %}"
                class="btn btn-outline-secondary">
               Cancel
             </a>
@@ -170,4 +322,353 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/reservation-calendar.js' %}?v=1"></script>
+<script src="{% static 'js/reservation-time-picker.js' %}?v=2"></script>
+<script>
+(function () {
+  var facilitySelect = document.getElementById('{{ form.facility.id_for_label }}');
+  var dateInput = document.getElementById('{{ form.reservation_date.id_for_label }}');
+  var startInput = document.getElementById('{{ form.start_time.id_for_label }}');
+  var endInput = document.getElementById('{{ form.end_time.id_for_label }}');
+  var schedule = document.getElementById('reservationSchedule');
+  var scheduleToggle = document.getElementById('reservationScheduleToggle');
+  var schedulePopover = document.getElementById('reservationSchedulePopover');
+  var scheduleDateStep = document.getElementById('reservationScheduleDateStep');
+  var scheduleTimeStep = document.getElementById('reservationScheduleTimeStep');
+  var scheduleSelectedDate = document.getElementById('reservationScheduleSelectedDate');
+  var scheduleChangeDate = document.getElementById('reservationScheduleChangeDate');
+  var scheduleSummary = document.getElementById('reservationScheduleSummary');
+  var scheduleHint = document.getElementById('reservationScheduleHint');
+  var scheduleError = document.getElementById('reservationScheduleError');
+  var scheduleDone = document.getElementById('reservationScheduleDone');
+  var durationPanel = document.getElementById('reservationDuration');
+  var durationLabel = document.getElementById('reservationDurationLabel');
+  var durationValue = document.getElementById('reservationDurationValue');
+  var panel = document.getElementById('facilityAvailability');
+  var message = document.getElementById('facilityAvailabilityMessage');
+  var eventsList = document.getElementById('facilityAvailabilityEvents');
+  var calendarLink = document.getElementById('facilityCalendarLink');
+  var submitButton = document.querySelector('form button[type="submit"]');
+  var canSubmit = submitButton && !submitButton.disabled;
+  var endpoint = "{% url 'reservations:facility_availability' %}";
+  var requestNumber = 0;
+  var availabilityAbort;
+
+  if (!facilitySelect || !dateInput || !panel) return;
+
+  var dateCalendar = { refresh: function () {}, focus: function () { dateInput.focus(); } };
+  if (typeof window.createReservationCalendar === 'function') {
+    dateCalendar = window.createReservationCalendar(
+      document.getElementById('reservationDateCalendar'), dateInput,
+      document.getElementById('reservationDateLabel')
+    );
+  }
+  var timePicker = { open: function (input) { input.focus(); }, close: function () {}, refresh: function () {} };
+  if (typeof window.createReservationTimePicker === 'function') {
+    timePicker = window.createReservationTimePicker(document.getElementById('reservationTimePicker'), [
+      { input: startInput, trigger: document.getElementById('reservationStartTimeToggle'), label: document.getElementById('reservationStartTimeLabel'), title: 'Start time' },
+      { input: endInput, trigger: document.getElementById('reservationEndTimeToggle'), label: document.getElementById('reservationEndTimeLabel'), title: 'End time' }
+    ], scheduleDone, updateDuration);
+  }
+
+  function formatDate(value) {
+    var parsed = new Date(value + 'T00:00:00');
+    return parsed.toLocaleDateString(undefined, {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }
+
+  function formatTime(value) {
+    if (!value) return '';
+    var parsed = new Date('1970-01-01T' + value + ':00');
+    return parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function formatDuration(start, end) {
+    if (!start || !end) return '';
+    var startParts = start.split(':').map(Number);
+    var endParts = end.split(':').map(Number);
+    var minutes = (endParts[0] - startParts[0]) * 60 + endParts[1] - startParts[1];
+    if (!Number.isFinite(minutes) || minutes <= 0) return '';
+    var hours = Math.floor(minutes / 60);
+    var remainder = minutes % 60;
+    return hours + (hours === 1 ? ' hour ' : ' hours ') + remainder + (remainder === 1 ? ' minute' : ' minutes');
+  }
+
+  function updateDuration(start, end, isPreview) {
+    var duration = formatDuration(start, end);
+    var invalid = Boolean(start && end && !duration);
+    durationPanel.classList.toggle('is-complete', Boolean(duration));
+    durationPanel.classList.toggle('is-invalid', invalid);
+    durationLabel.textContent = isPreview ? 'Duration preview' : 'Booking duration';
+    durationValue.textContent = duration || (invalid ? 'End time must be later than start time.' : 'Select both times to see the total.');
+    return duration;
+  }
+
+  function updateScheduleSummary() {
+    var duration = updateDuration(startInput.value, endInput.value, false);
+    if (!dateInput.value) {
+      scheduleSummary.textContent = 'Choose date and time';
+      scheduleHint.textContent = 'Select a date, then set when your reservation starts and ends.';
+      return;
+    }
+
+    var summary = formatDate(dateInput.value);
+    if (startInput.value && endInput.value) {
+      summary += ' · ' + formatTime(startInput.value) + '–' + formatTime(endInput.value);
+      scheduleHint.textContent = duration ? 'Duration: ' + duration + '. Tap to change.' : 'End time must be later than start time.';
+    } else {
+      if (startInput.value) summary += ' · From ' + formatTime(startInput.value);
+      var missing = [];
+      if (!startInput.value) missing.push('a start time');
+      if (!endInput.value) missing.push('an end time');
+      scheduleHint.textContent = 'Choose ' + missing.join(' and ') + '.';
+    }
+    scheduleSummary.textContent = summary;
+  }
+
+  function showDateStep() {
+    timePicker.close(false);
+    scheduleDateStep.hidden = false;
+    scheduleTimeStep.hidden = true;
+    dateCalendar.refresh();
+  }
+
+  function showTimeStep() {
+    if (!dateInput.value) {
+      showDateStep();
+      return;
+    }
+    scheduleDateStep.hidden = true;
+    scheduleTimeStep.hidden = false;
+    scheduleSelectedDate.textContent = formatDate(dateInput.value);
+    timePicker.refresh();
+  }
+
+  function openSchedulePicker(step) {
+    schedulePopover.hidden = false;
+    scheduleToggle.setAttribute('aria-expanded', 'true');
+    if (step === 'date' || (!step && !dateInput.value)) showDateStep();
+    else showTimeStep();
+    if (!scheduleDateStep.hidden) dateCalendar.focus();
+  }
+
+  function closeSchedulePicker() {
+    timePicker.close(false);
+    schedulePopover.hidden = true;
+    scheduleToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function getScheduleIssue() {
+    if (!dateInput.value) return { message: 'Choose a reservation date.', field: dateInput };
+    if (dateInput.value < dateInput.min) return { message: 'Choose today or a future date.', field: dateInput };
+    if (!startInput.value) return { message: 'Choose a start time.', field: startInput };
+    if (!endInput.value) return { message: 'Choose an end time.', field: endInput };
+    if (endInput.value <= startInput.value) {
+      return { message: 'End time must be later than start time.', field: endInput };
+    }
+    return null;
+  }
+
+  function showScheduleIssue(issue) {
+    scheduleError.textContent = issue.message;
+    scheduleError.hidden = false;
+    scheduleToggle.classList.add('is-invalid');
+    scheduleToggle.setAttribute('aria-invalid', 'true');
+    openSchedulePicker(issue.field === dateInput ? 'date' : 'time');
+    if (issue.field === dateInput) dateCalendar.focus();
+    else timePicker.open(issue.field);
+  }
+
+  function clearScheduleIssue() {
+    scheduleError.hidden = true;
+    scheduleToggle.classList.remove('is-invalid');
+    scheduleToggle.removeAttribute('aria-invalid');
+  }
+
+  function clearFieldError(input, errorId) {
+    input.classList.remove('is-invalid');
+    input.removeAttribute('aria-describedby');
+    var error = document.getElementById(errorId);
+    if (error) error.remove();
+  }
+
+  function handleScheduleChange(event) {
+    updateScheduleSummary();
+    if (event.target === dateInput) {
+      clearFieldError(dateInput, 'reservationDateError');
+      if (dateInput.value) {
+        showTimeStep();
+        timePicker.open(startInput);
+      } else showDateStep();
+    } else if (event.target === startInput) {
+      clearFieldError(startInput, 'reservationStartTimeError');
+    } else if (event.target === endInput) {
+      clearFieldError(endInput, 'reservationEndTimeError');
+    }
+    timePicker.refresh();
+    if (!scheduleError.hidden) {
+      var issue = getScheduleIssue();
+      if (issue) scheduleError.textContent = issue.message;
+      else clearScheduleIssue();
+    }
+    refreshAvailability();
+  }
+
+  function setPanelState(state) {
+    panel.className = 'reservation-availability is-' + state;
+  }
+
+  function clearEvents() {
+    eventsList.replaceChildren();
+    eventsList.hidden = true;
+  }
+
+  async function refreshAvailability() {
+    var currentRequest = ++requestNumber;
+    if (availabilityAbort) availabilityAbort.abort();
+    var facilityId = facilitySelect.value;
+    var selectedDate = dateInput.value;
+    if (!facilityId || !selectedDate) {
+      panel.hidden = true;
+      calendarLink.hidden = true;
+      clearEvents();
+      if (submitButton) submitButton.disabled = !canSubmit;
+      return;
+    }
+
+    panel.hidden = false;
+    setPanelState('loading');
+    message.textContent = 'Checking reservations for ' + formatDate(selectedDate) + '…';
+    calendarLink.hidden = true;
+    clearEvents();
+
+    var finishLoading = window.CFRMSLoading ? window.CFRMSLoading.beginRegion(panel, 'Checking facility availability…') : function () {};
+    var controller = new AbortController();
+    availabilityAbort = controller;
+    var timeout = window.setTimeout(function () { controller.abort(); }, 15000);
+    if (submitButton) submitButton.disabled = true;
+
+    var query = new URLSearchParams({ facility: facilityId, date: selectedDate });
+    {% if is_edit %}query.set('reservation', '{{ reservation.pk }}');{% endif %}
+    if (startInput && startInput.value) query.set('start_time', startInput.value);
+    if (endInput && endInput.value) query.set('end_time', endInput.value);
+
+    try {
+      var response = await fetch(endpoint + '?' + query.toString(), {
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+      var data = await response.json();
+      if (currentRequest !== requestNumber) return;
+      if (!response.ok) throw new Error(data.error || 'Availability could not be loaded.');
+
+      calendarLink.href = data.calendar_url;
+      calendarLink.hidden = false;
+      if (!data.facility_available) {
+        setPanelState('unavailable');
+        message.textContent = data.facility_name + ' is currently ' + data.facility_status.toLowerCase() + '.';
+      } else if (data.selected_time_conflict) {
+        setPanelState('unavailable');
+        message.textContent = 'Your selected time overlaps a reservation or scheduled maintenance.';
+      } else if (data.events.length) {
+        setPanelState('limited');
+        message.textContent = 'This facility has other reservations or maintenance on ' + formatDate(data.date) + '. Review the times below.';
+      } else {
+        setPanelState('open');
+        message.textContent = 'No reservations or scheduled maintenance are listed for this date. Your time will be checked again when you submit.';
+      }
+      if (submitButton) {
+        submitButton.disabled = !canSubmit || !data.facility_available || Boolean(data.selected_time_conflict);
+      }
+
+      data.events.forEach(function (event) {
+        var item = document.createElement('li');
+        var time = document.createElement('strong');
+        var detail = document.createElement('span');
+        time.textContent = event.start_time + '–' + event.end_time;
+        detail.textContent = event.label + (event.conflicts_requested_time ? ' — overlaps your selected time' : '');
+        item.append(time, detail);
+        eventsList.appendChild(item);
+      });
+      eventsList.hidden = data.events.length === 0;
+    } catch (error) {
+      if (currentRequest !== requestNumber) return;
+      setPanelState('unavailable');
+      message.textContent = error.name === 'AbortError' ? 'The availability check took too long. Try again or open the facility calendar.' : error.message || 'Could not load availability. Try again or open the facility calendar.';
+      if (submitButton) submitButton.disabled = !canSubmit;
+    } finally {
+      window.clearTimeout(timeout);
+      finishLoading();
+      if (availabilityAbort === controller) availabilityAbort = null;
+    }
+  }
+
+  scheduleToggle.addEventListener('click', function () {
+    if (schedulePopover.hidden) openSchedulePicker();
+    else closeSchedulePicker();
+  });
+  scheduleDone.addEventListener('click', function () {
+    var issue = getScheduleIssue();
+    if (issue) {
+      showScheduleIssue(issue);
+      return;
+    }
+    clearScheduleIssue();
+    closeSchedulePicker();
+    scheduleToggle.focus();
+  });
+  scheduleChangeDate.addEventListener('click', function () {
+    showDateStep();
+    dateCalendar.focus();
+  });
+  document.addEventListener('click', function (event) {
+    if (!schedule.contains(event.target)) closeSchedulePicker();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !schedulePopover.hidden) {
+      closeSchedulePicker();
+      scheduleToggle.focus();
+    }
+  });
+  dateInput.addEventListener('change', handleScheduleChange);
+  startInput.addEventListener('change', handleScheduleChange);
+  endInput.addEventListener('change', handleScheduleChange);
+  [dateInput, startInput, endInput].forEach(function (input) {
+    input.addEventListener('click', function () {
+      if (typeof input.showPicker === 'function') {
+        try { input.showPicker(); } catch (error) {
+          // Keep the native input usable when a browser cannot open its picker.
+        }
+      }
+    });
+  });
+  dateInput.addEventListener('input', updateScheduleSummary);
+  startInput.addEventListener('input', updateScheduleSummary);
+  endInput.addEventListener('input', updateScheduleSummary);
+  dateInput.form.addEventListener('submit', function (event) {
+    var issue = getScheduleIssue();
+    if (issue) {
+      event.preventDefault();
+      showScheduleIssue(issue);
+    }
+  });
+
+  facilitySelect.addEventListener('change', refreshAvailability);
+  updateScheduleSummary();
+  if (dateInput.classList.contains('is-invalid')) {
+    openSchedulePicker('date');
+  } else if (startInput.classList.contains('is-invalid') || endInput.classList.contains('is-invalid')) {
+    openSchedulePicker('time');
+    timePicker.open(startInput.classList.contains('is-invalid') ? startInput : endInput);
+  } else if (dateInput.value && !startInput.value) {
+    openSchedulePicker('time');
+    timePicker.open(startInput);
+  }
+  refreshAvailability();
+}());
+</script>
 {% endblock %}

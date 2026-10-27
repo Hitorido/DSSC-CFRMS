@@ -19,7 +19,7 @@ class User(AbstractUser):
         ADMIN = 'ADMIN', 'Admin'
         STAFF = 'STAFF', 'Staff'
         FACULTY = 'FACULTY', 'Faculty'
-        REQUESTER = 'REQUESTER', 'Student Requester'
+        REQUESTER = 'REQUESTER', 'Student'
 
     class UserType(models.TextChoices):
         STUDENT = 'STUDENT', 'Student'

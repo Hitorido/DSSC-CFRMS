@@ -4,6 +4,59 @@ from django.core.exceptions import ValidationError
 from .models import User
 
 
+DEPARTMENT_COURSE_CHOICES = [
+    ('', 'Select a course or program'),
+    ('COLLEGE OF AGRICULTURE AND RELATED SCIENCES (CARS)', [
+        ('CARS - BSA - Animal Science', 'Bachelor of Science in Agriculture (BSA) - Animal Science'),
+        ('CARS - BSA - Crop Protection', 'Bachelor of Science in Agriculture (BSA) - Crop Protection'),
+        ('CARS - BSA - Horticulture', 'Bachelor of Science in Agriculture (BSA) - Horticulture'),
+        ('CARS - BSAB', 'Bachelor of Science in Agribusiness (BSAB)'),
+        ('CARS - BSABE', 'Bachelor of Science in Agricultural and Biosystems Engineering (BSABE)'),
+        ('CARS - BSAF', 'Bachelor of Science in Agroforestry (BSAF)'),
+        ('CARS - BS VetTech', 'Bachelor of Science in Veterinary Technology (BS VetTech)'),
+    ]),
+    ('COLLEGE OF INFORMATION AND DIGITAL SCIENCES (CIDS)', [
+        ('CIDS - BSIT', 'Bachelor of Science in Information Technology (BSIT)'),
+        ('CIDS - BSIS', 'Bachelor of Science in Information Systems (BSIS)'),
+        ('CIDS - DIT', '3-Year Diploma in Information Technology (DIT)'),
+        ('CIDS - ACT', '2-Year Associate in Computer Technology (ACT)'),
+    ]),
+    ('COLLEGE OF TEACHER EDUCATION (CTED)', [
+        ('CTED - BEED', 'Bachelor of Elementary Education (BEED)'),
+        ('CTED - BSED - English', 'Bachelor of Secondary Education (BSED) - English'),
+        ('CTED - BSED - Social Studies', 'Bachelor of Secondary Education (BSED) - Social Studies'),
+        ('CTED - BSED - Mathematics', 'Bachelor of Secondary Education (BSED) - Mathematics'),
+        ('CTED - BSED - Science', 'Bachelor of Secondary Education (BSED) - Science'),
+        ('CTED - BSED - Filipino', 'Bachelor of Secondary Education (BSED) - Filipino'),
+        ('CTED - BTLED - Home Economics', 'Bachelor of Technology and Livelihood Education (BTLED) - Home Economics'),
+    ]),
+    ('COLLEGE OF BUSINESS EDUCATION AND GOVERNANCE (CBEG)', [
+        ('CBEG - BSAIS', 'Bachelor of Science in Accounting Information Systems (BSAIS)'),
+        ('CBEG - BPA', 'Bachelor of Public Administration (BPA)'),
+    ]),
+    ('COLLEGE OF ENGINEERING AND TECHNOLOGY (CET)', [
+        ('CET - BIT', 'Bachelor of Industrial Technology (BIT)'),
+    ]),
+    ('COLLEGE OF MATHEMATICS, ARTS, AND SCIENCES (CMAS)', [
+        ('CMAS - BS Mathematics', 'Bachelor of Science in Mathematics'),
+        ('CMAS - BS Biology - Biodiversity', 'Bachelor of Science in Biology - Biodiversity track'),
+        ('CMAS - BS Biology - Medical Biology', 'Bachelor of Science in Biology - Medical Biology track'),
+        ('CMAS - BSES', 'Bachelor of Science in Environmental Science (BSES)'),
+        ('CMAS - BSFT', 'Bachelor of Science in Food Technology (BSFT)'),
+        ('CMAS - BS DevCom', 'Bachelor of Science in Development Communication (BS DevCom)'),
+    ]),
+    ('COLLEGE OF GRADUATE AND PROFESSIONAL EDUCATION (CGPE)', [
+        ('CGPE - PhD - Educational Management', 'Doctor of Philosophy (PhD) in Educational Management'),
+        ('CGPE - PhD - Business Administration', 'Doctor of Philosophy (PhD) in Business Administration'),
+        ('CGPE - MAEd - Educational Management', 'Master of Arts in Education (MAEd) - Educational Management'),
+        ('CGPE - MAEd - Mathematics Teaching', 'Master of Arts in Education (MAEd) - Mathematics Teaching'),
+        ('CGPE - MAEd - Language Teaching', 'Master of Arts in Education (MAEd) - Language Teaching'),
+        ('CGPE - MAEd - Science Teaching', 'Master of Arts in Education (MAEd) - Science Teaching'),
+        ('CGPE - MBA - Agri-Business Management', 'Master in Business Administration (MBA) - Agri-Business Management'),
+    ]),
+]
+
+
 class RegisterForm(UserCreationForm):
     """
     Public self-registration form.
@@ -27,10 +80,11 @@ class RegisterForm(UserCreationForm):
         required=False,
         help_text='Optional but recommended.',
     )
-    department = forms.CharField(
-        max_length=100,
+    department = forms.ChoiceField(
+        choices=DEPARTMENT_COURSE_CHOICES,
         required=False,
-        help_text='Your college, department, or office (e.g. BSIS, Education).',
+        help_text='Select your college and course.',
+        widget=forms.Select(attrs={'class': 'form-select'}),
     )
 
     class Meta:

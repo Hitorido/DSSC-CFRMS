@@ -109,6 +109,7 @@
             {% elif res.status == 'COMPLETED' %}<span class="badge badge-approved rounded-pill px-3">Completed</span>
             {% elif res.status == 'REJECTED' %}<span class="badge badge-rejected rounded-pill px-3">Declined</span>
             {% else %}<span class="badge badge-cancelled rounded-pill px-3">Cancelled</span>{% endif %}
+            {% if res.appeal_count %}<small class="d-block text-muted mt-1">Appeal {{ res.appeal_count }} of {{ res.MAX_APPEALS }}</small>{% endif %}
           </td>
           <td class="text-center">
             <a href="{% url 'reservations:reservation_detail' res.pk %}" class="btn btn-sm btn-cfrms-primary" aria-label="Review reservation {{ res.pk }}">
