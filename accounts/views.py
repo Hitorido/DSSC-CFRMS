@@ -732,7 +732,8 @@ def admin_dashboard_view(request):
         # Try to get analytics from operational data first
         operational_count = Reservation.objects.filter(status__in=[Reservation.Status.APPROVED, Reservation.Status.COMPLETED]).count()
         
-        if operational_count < 100 and 'analytics' in connections.databases:
+        # Always use synthetic data since analytics DB fallback to default works
+        if True:  # Force synthetic
             # Fall back to synthetic data for demonstration
             analytics_data_scope = 'synthetic'
             is_using_synthetic_data = True
