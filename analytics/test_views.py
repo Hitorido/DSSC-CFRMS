@@ -464,3 +464,263 @@ class AnalyticsViewsTestCase(TestCase):
         response = self.client.delete(reverse('analytics:reservation-kpis'))
         self.assertEqual(response.status_code, 405)
 
+
+
+    # ========================================================================
+    # NEW ENDPOINTS (TASK 9): Peak Hours, Occupancy, Recommendations, Calendar
+    # ========================================================================
+
+    def test_peak_hours_endpoint_response_structure(self):
+        """Peak hours endpoint returns correct JSON structure."""
+        self.client.login(username='admin_user', password='testpass123')
+        response = self.client.get(reverse('analytics:peak-hours'))
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Should have peak_hours and all_hours
+        self.assertIn('peak_hours', data)
+        self.assertIn('all_hours', data)
+        
+        # peak_hours should be a list
+        self.assertIsInstance(data['peak_hours'], list)
+        
+        # all_hours should be a dict
+        self.assertIsInstance(data['all_hours'], dict)
+        
+        # Each peak hour should have hour and count
+        for peak in data['peak_hours']:
+            self.assertIn('hour', peak)
+            self.assertIn('count', peak)
+            self.assertGreaterEqual(peak['hour'], 0)
+            self.assertLessEqual(peak['hour'], 23)
+
+    def test_peak_hours_admin_only(self):
+        """Peak hours endpoint requires ADMIN role."""
+        self.client.login(username='staff_user', password='testpass123')
+        response = self.client.get(reverse('analytics:peak-hours'))
+        
+        self.assertEqual(response.status_code, 403)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Permission denied')
+
+    def test_peak_hours_database_unavailable(self):
+        """Peak hours handles database unavailability."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        with patch('analytics.views.services.PredictiveAnalytics.compute_peak_hours') as mock:
+            mock.side_effect = RuntimeError("Analytics database not configured")
+            response = self.client.get(reverse('analytics:peak-hours'))
+        
+        self.assertEqual(response.status_code, 503)
+
+    def test_occupancy_by_facility_endpoint_response_structure(self):
+        """Occupancy by facility endpoint returns correct JSON structure."""
+        self.client.login(username='admin_user', password='testpass123')
+        response = self.client.get(reverse('analytics:occupancy-by-facility'))
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Should have facilities key
+        self.assertIn('facilities', data)
+        
+        # facilities should be a list
+        self.assertIsInstance(data['facilities'], list)
+        
+        # Each facility should have required fields
+        if len(data['facilities']) > 0:
+            facility = data['facilities'][0]
+            required = ['facility_id', 'facility_name', 'occupancy', 
+                       'occupancy_percent', 'reservation_count', 'capacity']
+            for field in required:
+                self.assertIn(field, facility, f"Missing field: {field}")
+
+    def test_occupancy_by_facility_with_date_range(self):
+        """Occupancy by facility accepts date range parameters."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        today = timezone.localdate()
+        response = self.client.get(
+            reverse('analytics:occupancy-by-facility'),
+            {
+                'start_date': (today - datetime.timedelta(days=30)).isoformat(),
+                'end_date': today.isoformat()
+            }
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn('facilities', data)
+
+    def test_occupancy_by_facility_invalid_start_date(self):
+        """Occupancy by facility validates start_date format."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:occupancy-by-facility'),
+            {'start_date': 'invalid-date'}
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid parameter')
+
+    def test_occupancy_by_facility_admin_only(self):
+        """Occupancy by facility endpoint requires ADMIN role."""
+        self.client.login(username='requester_user', password='testpass123')
+        response = self.client.get(reverse('analytics:occupancy-by-facility'))
+        
+        self.assertEqual(response.status_code, 403)
+
+    def test_recommendations_endpoint_response_structure(self):
+        """Recommendations endpoint returns correct JSON structure."""
+        self.client.login(username='admin_user', password='testpass123')
+        response = self.client.get(reverse('analytics:recommendations'))
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Should have recommendations, count, and timestamp
+        self.assertIn('recommendations', data)
+        self.assertIn('recommendation_count', data)
+        self.assertIn('generation_timestamp', data)
+        
+        # recommendations should be a list
+        self.assertIsInstance(data['recommendations'], list)
+        
+        # Each recommendation should have required fields
+        for rec in data['recommendations']:
+            required = ['priority', 'title', 'description', 'action', 'impact']
+            for field in required:
+                self.assertIn(field, rec, f"Missing field in recommendation: {field}")
+            
+            # Priority should be one of the valid values
+            self.assertIn(rec['priority'], ['high', 'medium', 'low'])
+
+    def test_recommendations_admin_only(self):
+        """Recommendations endpoint requires ADMIN role."""
+        self.client.login(username='staff_user', password='testpass123')
+        response = self.client.get(reverse('analytics:recommendations'))
+        
+        self.assertEqual(response.status_code, 403)
+
+    def test_recommendations_database_unavailable(self):
+        """Recommendations handles database unavailability."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        with patch('analytics.views.services.PrescriptiveAnalytics.generate_recommendations') as mock:
+            mock.side_effect = RuntimeError("Analytics database not configured")
+            response = self.client.get(reverse('analytics:recommendations'))
+        
+        self.assertEqual(response.status_code, 503)
+
+    def test_system_calendar_endpoint_response_structure(self):
+        """System calendar endpoint returns correct JSON structure."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:system-calendar'),
+            {'month': '2024-12'}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Should have month and calendar
+        self.assertIn('month', data)
+        self.assertIn('calendar', data)
+        
+        # month should match request
+        self.assertEqual(data['month'], '2024-12')
+        
+        # calendar should be a list
+        self.assertIsInstance(data['calendar'], list)
+        
+        # Each calendar day should have required fields
+        if len(data['calendar']) > 0:
+            day = data['calendar'][0]
+            required = ['date', 'reservation_count', 'maintenance_count', 
+                       'total_events', 'reservations', 'maintenance']
+            for field in required:
+                self.assertIn(field, day, f"Missing field in calendar day: {field}")
+
+    def test_system_calendar_missing_month_parameter(self):
+        """System calendar requires month parameter."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(reverse('analytics:system-calendar'))
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid parameter')
+        self.assertIn('month', data['detail'].lower())
+
+    def test_system_calendar_invalid_month_format(self):
+        """System calendar validates month format."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:system-calendar'),
+            {'month': '2024/12'}
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid parameter')
+
+    def test_system_calendar_invalid_month_number(self):
+        """System calendar validates month is 1-12."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:system-calendar'),
+            {'month': '2024-13'}
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid parameter')
+
+    def test_system_calendar_admin_only(self):
+        """System calendar endpoint requires ADMIN role."""
+        self.client.login(username='requester_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:system-calendar'),
+            {'month': '2024-12'}
+        )
+        
+        self.assertEqual(response.status_code, 403)
+
+    def test_system_calendar_valid_month_range(self):
+        """System calendar accepts valid month in valid year range."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        # Test various valid months
+        valid_months = ['2024-01', '2024-06', '2024-12', '2025-01']
+        
+        for month in valid_months:
+            response = self.client.get(
+                reverse('analytics:system-calendar'),
+                {'month': month}
+            )
+            
+            self.assertEqual(response.status_code, 200, f"Failed for month {month}")
+            data = json.loads(response.content)
+            self.assertEqual(data['month'], month)
+
+    def test_system_calendar_returns_all_days_in_month(self):
+        """System calendar returns entries for all days in the month."""
+        self.client.login(username='admin_user', password='testpass123')
+        
+        response = self.client.get(
+            reverse('analytics:system-calendar'),
+            {'month': '2024-12'}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # December has 31 days
+        self.assertEqual(len(data['calendar']), 31)

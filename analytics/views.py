@@ -543,3 +543,348 @@ def demand_forecast(request):
             f'Cannot generate forecast: {str(e)}',
             status=422,
         )
+
+
+# ============================================================================
+# ENDPOINT: Peak Hours Analysis
+# ============================================================================
+
+@require_http_methods(['GET'])
+@require_auth_json
+@admin_only
+def peak_hours(request):
+    """
+    GET /api/analytics/peak-hours/
+    
+    Returns peak booking hours analysis showing which hours have highest reservation volume.
+    
+    Response (200 OK):
+    {
+        "peak_hours": [
+            {"hour": 14, "count": 120},
+            {"hour": 15, "count": 115},
+            {"hour": 13, "count": 108}
+        ],
+        "all_hours": {
+            "0": 5, "1": 2, ..., "23": 45
+        }
+    }
+    
+    Notes:
+    - Hour values: 0-23 (24-hour format)
+    - peak_hours list shows top 3 busiest hours, sorted by count descending
+    - all_hours provides complete hourly breakdown for charting
+    
+    Error Responses:
+    - 503 Service Unavailable: Analytics database not configured
+    - 403 Forbidden: User does not have ADMIN role
+    - 401 Unauthorized: User is not authenticated
+    """
+    try:
+        result = services.PredictiveAnalytics.compute_peak_hours()
+        return JsonResponse(result, status=200)
+    except RuntimeError as e:
+        return database_unavailable_response()
+
+
+# ============================================================================
+# ENDPOINT: Occupancy by Facility
+# ============================================================================
+
+@require_http_methods(['GET'])
+@require_auth_json
+@admin_only
+def occupancy_by_facility(request):
+    """
+    GET /api/analytics/occupancy-by-facility/?start_date=2024-01-01&end_date=2024-12-31
+    
+    Returns occupancy rate for each facility over a date range.
+    
+    Query Parameters:
+    - start_date (optional): ISO format date (YYYY-MM-DD). Default: 30 days ago
+    - end_date (optional): ISO format date (YYYY-MM-DD). Default: today
+    
+    Response (200 OK):
+    {
+        "facilities": [
+            {
+                "facility_id": 1,
+                "facility_name": "Lab A",
+                "occupancy": 0.75,
+                "occupancy_percent": 75.0,
+                "reservation_count": 45,
+                "capacity": 30
+            },
+            ...
+        ]
+    }
+    
+    Notes:
+    - Occupancy is calculated as: approved_reservations / (days * operating_hours)
+    - Facilities sorted by occupancy descending (highest occupancy first)
+    
+    Error Responses:
+    - 400 Bad Request: Invalid date format or parameter
+    - 503 Service Unavailable: Analytics database not configured
+    - 403 Forbidden: User does not have ADMIN role
+    - 401 Unauthorized: User is not authenticated
+    """
+    # Parse optional date parameters
+    start_date_str = request.GET.get('start_date', '')
+    end_date_str = request.GET.get('end_date', '')
+    
+    start_date, err = parse_date(start_date_str, 'start_date') if start_date_str else (None, None)
+    if err:
+        return err
+    
+    end_date, err = parse_date(end_date_str, 'end_date') if end_date_str else (None, None)
+    if err:
+        return err
+    
+    # Validate date range if both provided
+    if start_date and end_date:
+        if start_date > end_date:
+            return error_response(
+                'Invalid parameter',
+                f'start_date ({start_date}) must be before or equal to end_date ({end_date})',
+                status=400,
+            )
+    
+    try:
+        result = services.PredictiveAnalytics.compute_occupancy_by_facility(
+            start_date=start_date,
+            end_date=end_date
+        )
+        return JsonResponse(result, status=200)
+    except RuntimeError as e:
+        return database_unavailable_response()
+
+
+# ============================================================================
+# ENDPOINT: Recommendations
+# ============================================================================
+
+@require_http_methods(['GET'])
+@require_auth_json
+@admin_only
+def recommendations(request):
+    """
+    GET /api/analytics/recommendations/
+    
+    Returns actionable recommendations based on predictive analytics.
+    
+    Response (200 OK):
+    {
+        "recommendations": [
+            {
+                "priority": "high",
+                "title": "Schedule maintenance during low-occupancy periods",
+                "description": "Identified low-occupancy windows: Friday 5-7pm",
+                "action": "Create maintenance records for identified time slots",
+                "impact": "Minimize disruption to users"
+            },
+            ...
+        ]
+    }
+    
+    Priorities:
+    - high: Critical action items (capacity issues, equipment risk)
+    - medium: Important but not urgent (extended hours, scheduling)
+    - low: Nice-to-have optimizations
+    
+    Error Responses:
+    - 503 Service Unavailable: Analytics database not configured
+    - 403 Forbidden: User does not have ADMIN role
+    - 401 Unauthorized: User is not authenticated
+    """
+    try:
+        result = services.PrescriptiveAnalytics.generate_recommendations()
+        return JsonResponse(result, status=200)
+    except RuntimeError as e:
+        return database_unavailable_response()
+
+
+# ============================================================================
+# ENDPOINT: System Calendar
+# ============================================================================
+
+@require_http_methods(['GET'])
+@require_auth_json
+@admin_only
+def system_calendar(request):
+    """
+    GET /api/analytics/system-calendar/?month=2024-12
+    
+    Returns system-wide reservation and maintenance calendar data for a given month.
+    
+    Query Parameters:
+    - month (required): ISO month string (YYYY-MM). Example: 2024-12
+    
+    Response (200 OK):
+    {
+        "month": "2024-12",
+        "calendar": [
+            {
+                "date": "2024-12-01",
+                "reservation_count": 5,
+                "maintenance_count": 1,
+                "total_events": 6,
+                "reservations": [
+                    {
+                        "facility_name": "Lab A",
+                        "time": "09:00-10:00",
+                        "requester": "John Doe",
+                        "status": "APPROVED"
+                    }
+                ],
+                "maintenance": [
+                    {
+                        "facility_name": "Lab A",
+                        "title": "HVAC Maintenance",
+                        "time": "14:00-15:00",
+                        "status": "SCHEDULED"
+                    }
+                ]
+            },
+            ...
+        ]
+    }
+    
+    Notes:
+    - Returns all days in the month, including empty days
+    - Reservations are filtered by status (APPROVED, PENDING, COMPLETED)
+    - Maintenance includes SCHEDULED, COMPLETED, CANCELLED records
+    
+    Error Responses:
+    - 400 Bad Request: Invalid or missing month parameter
+    - 503 Service Unavailable: Analytics database not configured
+    - 403 Forbidden: User does not have ADMIN role
+    - 401 Unauthorized: User is not authenticated
+    """
+    month_str = request.GET.get('month', '')
+    
+    if not month_str:
+        return error_response(
+            'Invalid parameter',
+            'month parameter is required (format: YYYY-MM)',
+            status=400,
+        )
+    
+    # Parse month string (YYYY-MM)
+    try:
+        parts = month_str.split('-')
+        if len(parts) != 2:
+            raise ValueError('Invalid format')
+        year = int(parts[0])
+        month = int(parts[1])
+        if month < 1 or month > 12:
+            raise ValueError('Month must be 1-12')
+    except (ValueError, IndexError):
+        return error_response(
+            'Invalid parameter',
+            f'month must be ISO format (YYYY-MM). Got: {month_str}',
+            status=400,
+        )
+    
+    try:
+        # Build calendar for the month
+        from datetime import datetime as dt, date as date_cls, timedelta
+        from reservations.models import Reservation
+        from facilities.models import FacilityMaintenance
+        
+        db = 'analytics'
+        
+        # Calculate date range for the month
+        start_date = date_cls(year, month, 1)
+        # Last day of month
+        if month == 12:
+            end_date = date_cls(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date_cls(year, month + 1, 1) - timedelta(days=1)
+        
+        # Query reservations for the month
+        reservations_qs = (
+            Reservation.objects
+            .using(db)
+            .filter(
+                is_synthetic=True,
+                reservation_date__gte=start_date,
+                reservation_date__lte=end_date,
+                status__in=['APPROVED', 'PENDING', 'COMPLETED']
+            )
+            .select_related('facility', 'requested_by')
+            .order_by('reservation_date', 'start_time')
+        )
+        
+        # Query maintenance for the month
+        maintenance_qs = (
+            FacilityMaintenance.objects
+            .using(db)
+            .filter(
+                is_synthetic=True,
+                scheduled_start__date__gte=start_date,
+                scheduled_start__date__lte=end_date,
+                status__in=['SCHEDULED', 'COMPLETED', 'CANCELLED']
+            )
+            .select_related('facility')
+            .order_by('scheduled_start')
+        )
+        
+        # Group by date
+        calendar_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            # Get reservations for this date
+            daily_reservations = [
+                r for r in reservations_qs if r.reservation_date == current_date
+            ]
+            
+            # Get maintenance for this date
+            daily_maintenance = [
+                m for m in maintenance_qs 
+                if m.scheduled_start.date() == current_date
+            ]
+            
+            # Build day record
+            day_record = {
+                'date': current_date.isoformat(),
+                'reservation_count': len(daily_reservations),
+                'maintenance_count': len(daily_maintenance),
+                'total_events': len(daily_reservations) + len(daily_maintenance),
+                'reservations': [
+                    {
+                        'facility_name': r.facility.name,
+                        'time': f'{r.start_time.strftime("%H:%M")}-{r.end_time.strftime("%H:%M")}',
+                        'requester': r.requested_by.get_full_name() or r.requested_by.username,
+                        'status': r.status,
+                    }
+                    for r in daily_reservations
+                ],
+                'maintenance': [
+                    {
+                        'facility_name': m.facility.name,
+                        'title': m.title,
+                        'time': f'{m.scheduled_start.strftime("%H:%M")}-{m.scheduled_end.strftime("%H:%M")}' if m.scheduled_end else m.scheduled_start.strftime("%H:%M"),
+                        'status': m.status,
+                    }
+                    for m in daily_maintenance
+                ],
+            }
+            
+            calendar_data.append(day_record)
+            current_date += timedelta(days=1)
+        
+        return JsonResponse({
+            'month': month_str,
+            'calendar': calendar_data
+        }, status=200)
+    
+    except RuntimeError as e:
+        return database_unavailable_response()
+    except Exception as e:
+        return error_response(
+            'Internal server error',
+            f'Error generating calendar: {str(e)}',
+            status=500,
+        )

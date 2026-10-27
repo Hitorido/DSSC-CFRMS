@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Admin Console{% endblock %}
 
@@ -16,6 +17,264 @@
 <p class="text-muted mb-4">
   Manage CFRMS account roles and monitor campus activity. Access is based on your CFRMS Admin role.
 </p>
+
+{% if is_using_synthetic_data %}<div class="alert alert-info" role="status">
+  <i class="bi bi-info-circle me-2"></i>
+  <strong>Synthetic Data:</strong> Displaying synthetic data for demonstration purposes. This data helps showcase analytics features without relying on operational history.
+</div>{% endif %}
+
+<!-- Analytics Overview Section -->
+{% if analytics_overview %}
+<section class="mb-4" aria-labelledby="analyticsHeading">
+  <h2 id="analyticsHeading" class="h5 text-muted mb-3">
+    <i class="bi bi-graph-up me-2"></i>Analytics Overview
+  </h2>
+  
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="cfrms-card p-3 h-100">
+        <div class="text-muted small">Total Reservations</div>
+        <div class="fs-3 fw-bold">{{ analytics_overview.total_reservations }}</div>
+        <small class="text-muted">System-wide</small>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="cfrms-card p-3 h-100">
+        <div class="text-muted small">Avg Occupancy</div>
+        <div class="fs-3 fw-bold">{{ analytics_overview.avg_occupancy_percent }}%</div>
+        <small class="text-muted">All facilities</small>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="cfrms-card p-3 h-100">
+        <div class="text-muted small">Peak Facility</div>
+        <div class="fs-3 fw-bold text-truncate">{{ analytics_overview.peak_facility }}</div>
+        <small class="text-muted">Highest bookings</small>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="cfrms-card p-3 h-100">
+        <div class="text-muted small">Top-Booked Time</div>
+        <div class="fs-3 fw-bold">{{ analytics_overview.top_booked_time }}</div>
+        <small class="text-muted">Peak hour</small>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Demand Forecast Chart Section -->
+{% if demand_forecast_data %}
+<section class="mb-4" aria-labelledby="demandForecastHeading">
+  <div class="cfrms-card">
+    <div class="card-header-bar d-flex align-items-center justify-content-between gap-2">
+      <span id="demandForecastHeading">
+        <i class="bi bi-graph-up-arrow me-2"></i>Demand Forecast (3 Months)
+      </span>
+      <span class="badge bg-light text-dark fw-normal">Confidence: {{ demand_forecast_data.confidence|floatformat:0 }}%</span>
+    </div>
+    
+    <div class="p-4">
+      <canvas id="demandForecastChart" height="80"></canvas>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('demandForecastChart');
+  if (!ctx) return;
+  
+  // Prepare data from Django context
+  const historicalData = {{ demand_forecast_data.historical_data|safe }};
+  const forecastData = {{ demand_forecast_data.forecast_data|safe }};
+  
+  // Build label and data arrays
+  const labels = [];
+  const dataPoints = [];
+  const borderColors = [];
+  const borderDashPatterns = [];
+  
+  // Add historical data points
+  historicalData.forEach(item => {
+    labels.push(item.month);
+    dataPoints.push(item.count);
+    borderColors.push('#0066cc');
+    borderDashPatterns.push([]);  // Solid line
+  });
+  
+  // Add forecast data points
+  forecastData.forEach(item => {
+    labels.push(item.month);
+    dataPoints.push(item.forecast);
+    borderColors.push('#28a745');
+    borderDashPatterns.push([5, 5]);  // Dashed line
+  });
+  
+  // Create chart
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Historical Demand',
+          data: historicalData.map(item => item.count),
+          borderColor: '#0066cc',
+          backgroundColor: 'rgba(0, 102, 204, 0.05)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointBackgroundColor: '#0066cc',
+        },
+        {
+          label: 'Forecast',
+          data: Array(historicalData.length).fill(null).concat(forecastData.map(item => item.forecast)),
+          borderColor: '#28a745',
+          backgroundColor: 'rgba(40, 167, 69, 0.05)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointBackgroundColor: '#28a745',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: { size: 12 },
+          bodyFont: { size: 11 },
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) {
+                label += Math.round(context.parsed.y) + ' reservations';
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Reservation Count'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Month'
+          }
+        }
+      }
+    }
+  });
+});
+</script>
+{% endif %}
+
+<!-- System Reservations Calendar Section -->
+{% if system_calendar_weeks %}
+<section class="mb-4" aria-labelledby="systemCalendarHeading">
+  <details class="cfrms-card facility-calendar-card" open>
+    <summary class="card-header-bar d-flex align-items-center justify-content-between gap-2">
+      <span id="systemCalendarHeading">
+        <i class="bi bi-calendar3 me-2"></i>System Reservations Calendar
+      </span>
+      <span class="badge bg-light text-dark fw-normal">{{ system_calendar_month }}</span>
+    </summary>
+    
+    <div class="p-3 p-md-4">
+      <div class="facility-calendar-legend mb-3" aria-label="Event type legend">
+        <span><i class="legend-dot legend-pending"></i>Pending</span>
+        <span><i class="legend-dot legend-approved"></i>Approved</span>
+        <span><i class="legend-dot legend-completed"></i>Completed</span>
+        <span><i class="legend-dot legend-maintenance"></i>Maintenance</span>
+      </div>
+
+      <div class="facility-calendar-scroll">
+        <div class="facility-calendar-grid" role="grid" aria-label="{{ system_calendar_month }} system reservations">
+          {% for weekday in system_calendar_weekdays %}
+          <div class="facility-calendar-weekday" role="columnheader">{{ weekday }}</div>
+          {% endfor %}
+
+          {% for week in system_calendar_weeks %}
+            {% for day in week %}
+            <div class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell">
+              <div class="facility-calendar-day-head">
+                <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
+              </div>
+              {% if day.in_month %}
+              <div class="facility-calendar-events">
+                <div class="text-center text-muted small">{{ day.event_count }} event{{ day.event_count|pluralize }}</div>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </details>
+</section>
+{% endif %}
+
+<!-- Recommendations Section -->
+{% if recommendations %}
+<section class="mb-4" aria-labelledby="recommendationsHeading">
+  <h2 id="recommendationsHeading" class="h5 text-muted mb-3">
+    <i class="bi bi-lightbulb me-2"></i>Recommendations
+  </h2>
+  
+  <div class="row g-3">
+    {% for rec in recommendations %}
+    <div class="col-12">
+      <div class="cfrms-card p-3">
+        <div class="d-flex align-items-start gap-3">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <h3 class="h6 mb-0">{{ rec.title }}</h3>
+              <span class="badge {% if rec.priority == 'high' %}bg-danger{% elif rec.priority == 'medium' %}bg-warning{% else %}bg-info{% endif %} text-white">
+                {{ rec.priority|upper }}
+              </span>
+            </div>
+            <p class="text-muted small mb-2">{{ rec.description }}</p>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <small><strong>Action:</strong> {{ rec.action }}</small>
+              </div>
+              <div class="col-md-6">
+                <small><strong>Impact:</strong> {{ rec.impact }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  
+  <div class="text-muted small mt-3">
+    <i class="bi bi-info-circle me-1"></i>
+    Last updated: <time datetime="{{ data_last_updated|date:'c' }}">{{ data_last_updated|timesince }} ago</time>
+  </div>
+</section>
+{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-6 col-xl-3">

@@ -1,0 +1,559 @@
+{% extends "home.html" %}
+{% load static %}
+
+{% block content %}
+<div class="role-dashboard role-dashboard-staff">
+  <div class="cfrms-page-header">
+    <h1>
+      <i class="bi bi-person-workspace dashboard-role-icon" aria-hidden="true"></i>
+      Staff Dashboard
+    </h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item active" aria-current="page">Home</li>
+      </ol>
+    </nav>
+  </div>
+
+  {# ── Welcome Section ──────────────────────────────────────────────────── #}
+  <div class="cfrms-card home-welcome mb-4">
+    <div class="card-header-bar d-flex align-items-center gap-2">
+      <i class="bi bi-person-circle"></i>
+      <span>Welcome back</span>
+    </div>
+    <div class="p-4 home-welcome-content">
+      <div class="row g-3 align-items-center">
+        <div class="col-auto">
+          <div class="rounded-circle d-flex align-items-center justify-content-center home-avatar"
+               style="width:64px;height:64px;background:var(--cfrms-primary);">
+            {% if user.profile_image %}
+              <img src="{{ user.profile_image.url }}" alt="" class="home-avatar-image">
+            {% else %}
+              <i class="bi bi-person-fill text-white fs-2"></i>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col">
+          <div class="home-identity-line d-flex flex-wrap align-items-center gap-2">
+            <h2 class="mb-0 fw-bold home-greeting">{{ user.get_full_name|default:user.username }}</h2>
+          </div>
+          <div class="home-profile-meta d-flex flex-wrap align-items-center gap-2 mt-1">
+            <span class="home-profile-role">Staff Member</span>
+            {% if user.department %}
+              <span class="home-profile-department">
+                <i class="bi bi-building me-1" aria-hidden="true"></i>{{ user.department }}
+              </span>
+            {% endif %}
+          </div>
+          <p class="home-subtitle mb-0 mt-1">Manage facility reservations and monitor operational activity.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Quick Overview Metrics ──────────────────────────────────────────── #}
+  <section class="staff-overview" aria-label="Staff overview metrics">
+    <div class="row g-3 dashboard-overview mb-4">
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'facilities:facility_list' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-blue"><i class="bi bi-building-check"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Assigned Facilities</span>
+              <strong>{{ assigned_facilities_count }}</strong>
+              <span class="dashboard-metric-note">{% if assigned_facilities_count == 0 %}None assigned{% else %}managed{% endif %}</span>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon icon-tone-violet"><i class="bi bi-calendar2-event"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Today's Reservations</span>
+              <strong>{{ todays_reservation_count }}</strong>
+              <span class="dashboard-metric-note">across facilities</span>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-amber"><i class="bi bi-hammer"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Pending Maintenance</span>
+              <strong>{{ pending_maintenance_count }}</strong>
+              <span class="dashboard-metric-note">this week</span>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <a href="{% url 'reservations:pending_reservations' %}" class="dashboard-metric-link">
+          <div class="dashboard-metric">
+            <span class="dashboard-metric-icon metric-green"><i class="bi bi-inbox"></i></span>
+            <span class="dashboard-metric-copy">
+              <span class="dashboard-metric-label">Awaiting Review</span>
+              <strong>{{ pending_reservation_count }}</strong>
+              <span class="dashboard-metric-note">requests</span>
+            </span>
+            <i class="bi bi-arrow-up-right dashboard-metric-arrow"></i>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  {# ── Today's Operations Card ─────────────────────────────────────────── #}
+  <section class="staff-operations mb-4" aria-labelledby="todaysOperationsHeading">
+    <article class="cfrms-card">
+      <div class="card-header-bar">
+        <span id="todaysOperationsHeading">
+          <i class="bi bi-clock-history me-2"></i>Today's Operations
+        </span>
+      </div>
+      <div class="p-4">
+        <div class="row g-3">
+          <div class="col-12 col-sm-6 col-xl-3">
+            <div class="operations-stat">
+              <div class="operations-stat-icon" style="background: rgba(76, 175, 80, 0.1);">
+                <i class="bi bi-calendar2-check" style="color: #4caf50;"></i>
+              </div>
+              <div>
+                <div class="operations-stat-label">Reservations Today</div>
+                <div class="operations-stat-value">{{ todays_reservation_count }}</div>
+                <div class="operations-stat-note">approved bookings</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-sm-6 col-xl-3">
+            <div class="operations-stat">
+              <div class="operations-stat-icon" style="background: rgba(255, 152, 0, 0.1);">
+                <i class="bi bi-building" style="color: #ff9800;"></i>
+              </div>
+              <div>
+                <div class="operations-stat-label">Busiest Facility</div>
+                <div class="operations-stat-value text-truncate">{{ busiest_facility_today|default:"—" }}</div>
+                <div class="operations-stat-note">by reservation count</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-sm-6 col-xl-6">
+            <div class="operations-stat">
+              <div class="operations-stat-icon" style="background: rgba(33, 150, 243, 0.1);">
+                <i class="bi bi-hourglass" style="color: #2196f3;"></i>
+              </div>
+              <div>
+                <div class="operations-stat-label">Next 3 Hours Preview</div>
+                {% if next_hours_occupancy %}
+                  <div class="occupancy-mini-bars" role="img" aria-label="Occupancy for next 3 hours">
+                    {% for hour_data in next_hours_occupancy %}
+                      <div class="occupancy-bar" title="{{ hour_data.hour_label }}: {{ hour_data.occupancy_percent }}%">
+                        <div class="occupancy-bar-fill" style="height: {{ hour_data.occupancy_percent }}%;"></div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                  <div class="operations-stat-note">occupancy by hour</div>
+                {% else %}
+                  <div class="operations-stat-value">—</div>
+                  <div class="operations-stat-note">no data available</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  {# ── Assigned Facility Alerts ────────────────────────────────────────── #}
+  <section class="staff-alerts mb-4" aria-labelledby="facilityAlertsHeading">
+    <article class="cfrms-card">
+      <div class="card-header-bar">
+        <span id="facilityAlertsHeading">
+          <i class="bi bi-exclamation-triangle me-2"></i>Assigned Facility Alerts
+        </span>
+      </div>
+      <div class="p-4">
+        {% if facility_alerts %}
+          <div class="alerts-list">
+            {% for alert in facility_alerts %}
+              <div class="alert-item alert-{{ alert.severity|lower }} mb-3">
+                <div class="alert-item-header">
+                  <span class="alert-item-title">{{ alert.title }}</span>
+                  <span class="alert-item-badge badge {% if alert.severity == 'HIGH' %}bg-danger{% elif alert.severity == 'MEDIUM' %}bg-warning{% else %}bg-info{% endif %}">
+                    {{ alert.severity }}
+                  </span>
+                </div>
+                <div class="alert-item-body">
+                  <p class="mb-2">{{ alert.message }}</p>
+                  {% if alert.details %}
+                    <small class="text-muted">{{ alert.details }}</small>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="alert-empty">
+            <i class="bi bi-check-circle" style="color: #4caf50;"></i>
+            <p class="mb-0">No alerts at this time. All assigned facilities are operating normally.</p>
+          </div>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+
+  {# ── Peak Hours This Week Chart ──────────────────────────────────────── #}
+  <section class="staff-peak-hours mb-4" aria-labelledby="peakHoursHeading">
+    <article class="cfrms-card">
+      <div class="card-header-bar">
+        <span id="peakHoursHeading">
+          <i class="bi bi-graph-up-arrow me-2"></i>Peak Hours This Week
+        </span>
+      </div>
+      <div class="p-4">
+        {% if peak_hours_data %}
+          <canvas id="peakHoursChart" height="100" role="img" aria-label="Booking volume by hour of day this week"></canvas>
+          <div class="peak-hours-legend mt-3">
+            <div class="row g-2">
+              {% for hour_data in peak_hours_data %}
+                <div class="col-auto">
+                  <span class="badge bg-light text-dark">
+                    <strong>{{ hour_data.hour }}:00</strong> ({{ hour_data.count }} bookings)
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No booking data available for this week.</p>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+
+  {# ── Facility-Specific Recommendations ────────────────────────────────── #}
+  <section class="staff-recommendations mb-4" aria-labelledby="recommendationsHeading">
+    <article class="cfrms-card">
+      <div class="card-header-bar">
+        <span id="recommendationsHeading">
+          <i class="bi bi-lightbulb me-2"></i>Operational Recommendations
+        </span>
+      </div>
+      <div class="p-4">
+        {% if facility_recommendations %}
+          <div class="recommendations-list">
+            {% for rec in facility_recommendations %}
+              <div class="recommendation-item mb-3 pb-3{% if not forloop.last %} border-bottom{% endif %}">
+                <div class="recommendation-header">
+                  <span class="recommendation-title">{{ rec.title }}</span>
+                  <span class="recommendation-priority badge {% if rec.priority == 'high' %}bg-danger{% elif rec.priority == 'medium' %}bg-warning{% else %}bg-info{% endif %}">
+                    {{ rec.priority|upper }}
+                  </span>
+                </div>
+                <p class="recommendation-description mb-2">{{ rec.description }}</p>
+                <div class="recommendation-action">
+                  <small class="text-muted">
+                    <strong>Action:</strong> {{ rec.action }}<br>
+                    <strong>Impact:</strong> {{ rec.impact }}
+                  </small>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="recommendations-empty">
+            <p class="text-muted mb-0">No recommendations at this time. Operations are optimal.</p>
+          </div>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+
+  {# ── Calendar Section ────────────────────────────────────────────────── #}
+  <details class="cfrms-card facility-calendar-card dashboard-month-calendar mb-4" aria-labelledby="dashboardCalendarHeading" open>
+    <summary class="card-header-bar dashboard-calendar-summary d-flex align-items-center justify-content-between gap-3">
+      <span id="dashboardCalendarHeading"><i class="bi bi-calendar3 me-2"></i>Monthly Reservation Calendar</span>
+      <span class="dashboard-calendar-summary-meta">
+        <span class="badge bg-light text-dark fw-normal">
+          {{ dashboard_calendar_reservation_count }} reservation{{ dashboard_calendar_reservation_count|pluralize }}
+        </span>
+        <i class="bi bi-chevron-down dashboard-calendar-toggle-icon" aria-hidden="true"></i>
+      </span>
+    </summary>
+    <div class="p-3 p-md-4">
+      <div class="facility-calendar-toolbar">
+        <a class="btn btn-outline-secondary btn-sm" href="?calendar_month={{ dashboard_calendar_previous_month }}" aria-label="Previous month">
+          <i class="bi bi-chevron-left" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Previous</span>
+        </a>
+        <h2>{{ dashboard_calendar_month }}</h2>
+        <a class="btn btn-outline-secondary btn-sm" href="?calendar_month={{ dashboard_calendar_next_month }}" aria-label="Next month">
+          <span class="d-none d-sm-inline me-1">Next</span><i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </a>
+      </div>
+
+      <div class="facility-calendar-legend" aria-label="Event status legend">
+        <span><i class="legend-dot legend-pending"></i>Pending</span>
+        <span><i class="legend-dot legend-approved"></i>Approved</span>
+        <span><i class="legend-dot legend-maintenance"></i>Maintenance</span>
+        <span><i class="legend-dot legend-completed"></i>Completed</span>
+      </div>
+
+      <p class="facility-calendar-note">
+        Showing reservations and maintenance for your assigned facilities. Select an event to view its details.
+      </p>
+
+      {% if not dashboard_calendar_reservation_count %}
+      <div class="alert alert-light border mb-3" role="status">No reservations are scheduled for {{ dashboard_calendar_month }}.</div>
+      {% endif %}
+
+      <div class="facility-calendar-scroll">
+        <div class="facility-calendar-grid" role="grid" aria-label="{{ dashboard_calendar_month }} reservations">
+          {% for weekday in dashboard_calendar_weekdays %}
+          <div class="facility-calendar-weekday" role="columnheader">{{ weekday }}</div>
+          {% endfor %}
+
+          {% for week in dashboard_calendar_weeks %}
+            {% for day in week %}
+            <div id="staff-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
+              <div class="facility-calendar-day-head">
+                <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
+                {% if day.in_month and day.is_past %}<span class="facility-availability is-past">Past date</span>{% endif %}
+              </div>
+              {% if day.in_month %}
+              <div class="facility-calendar-events">
+                {% for event in day.events %}
+                <div class="facility-calendar-event event-{{ event.status_class }}" title="{{ event.facility_name }} &middot; {{ event.start_time|time:'H:i' }}&ndash;{{ event.end_time|time:'H:i' }} &middot; {{ event.label }}">
+                  <strong>{{ event.start_time|time:'H:i' }}&ndash;{{ event.end_time|time:'H:i' }}</strong>
+                  <span>{{ event.facility_name|truncatechars:24 }}</span>
+                  <span>{{ event.label }}</span>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </details>
+
+</div>
+
+<style>
+.operations-stat {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.operations-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.operations-stat-icon i {
+  font-size: 24px;
+}
+
+.operations-stat-label {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.operations-stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.operations-stat-note {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 0.25rem;
+}
+
+.occupancy-mini-bars {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 60px;
+  margin: 0.5rem 0;
+}
+
+.occupancy-bar {
+  flex: 1;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 20px;
+  position: relative;
+}
+
+.occupancy-bar-fill {
+  background: linear-gradient(180deg, #2196f3, #1976d2);
+  width: 100%;
+  transition: height 0.3s ease;
+}
+
+.occupancy-bar:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.alerts-list .alert-item {
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.alert-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.alert-item-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.alert-item-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.alert-item.alert-high {
+  background: #ffebee;
+  border-color: #f44336;
+}
+
+.alert-item.alert-medium {
+  background: #fff3e0;
+  border-color: #ff9800;
+}
+
+.alert-item.alert-low {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.alert-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #666;
+}
+
+.alert-empty i {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.peak-hours-legend {
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.recommendation-item {
+  padding: 1rem 0;
+}
+
+.recommendation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 0.5rem;
+  gap: 1rem;
+}
+
+.recommendation-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.recommendation-priority {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+.recommendation-description {
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+.recommendation-action {
+  margin-top: 0.5rem;
+}
+
+.recommendations-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('peakHoursChart');
+  if (!ctx) return;
+  
+  const peakHoursData = {{ peak_hours_chart_data|safe }};
+  if (!peakHoursData || peakHoursData.length === 0) return;
+  
+  const labels = peakHoursData.map(item => item.hour + ':00');
+  const data = peakHoursData.map(item => item.count);
+  
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Bookings',
+        data: data,
+        backgroundColor: '#2196f3',
+        borderColor: '#1976d2',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Number of Bookings'
+          }
+        }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

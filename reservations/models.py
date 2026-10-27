@@ -130,6 +130,18 @@ class Reservation(models.Model):
                 fields=['facility', 'reservation_date', 'status'],
                 name='res_fac_date_status_idx',
             ),
+            # Index for analytics queries filtering by date and status
+            # Supports: WHERE reservation_date = ? AND status IN (...)
+            models.Index(
+                fields=['reservation_date', 'status'],
+                name='res_date_status_idx',
+            ),
+            # Index for time-series analytics queries
+            # Supports: WHERE created_at >= ? AND created_at <= ?
+            models.Index(
+                fields=['created_at'],
+                name='res_created_at_idx',
+            ),
         ]
 
     def __str__(self):
@@ -272,9 +284,53 @@ class Reservation(models.Model):
         """
         Ensure model clean() validation is always enforced before saving to the database,
         even during direct ORM calls.
+        
+        Also invalidate analytics cache when status changes (Task 13).
         """
         self.full_clean()
+        
+        # Invalidate analytics cache if status changes
+        old_status = None
+        if self.pk:
+            try:
+                old_instance = type(self).objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except type(self).DoesNotExist:
+                pass
+        
+        # Status changed from old to new
+        if old_status and old_status != self.status:
+            self._invalidate_analytics_cache()
+        
         super().save(*args, **kwargs)
+    
+    def _invalidate_analytics_cache(self):
+        """
+        Invalidate analytics cache when reservation status changes.
+        
+        Triggered when:
+        - Reservation created (PENDING status)
+        - Reservation approved (PENDING -> APPROVED)
+        - Reservation rejected (PENDING -> REJECTED)
+        - Reservation cancelled (any status -> CANCELLED)
+        - Reservation completed (APPROVED -> COMPLETED)
+        
+        Cache invalidation helps keep analytics data fresh when
+        reservation data changes (Task 13 requirement).
+        """
+        from django.core.cache import cache
+        
+        # Invalidate key analytics cache entries
+        cache_keys_to_invalidate = [
+            'forecast_6_3',  # demand forecast
+            'peak_hours',     # peak hours analysis
+            'peak_days',      # peak days analysis
+            'prescriptive_recommendations',  # recommendations
+            'facility_analytics_dashboard',  # dashboard analytics
+        ]
+        
+        for key in cache_keys_to_invalidate:
+            cache.delete(key)
 
     # Workflow methods
     def appeal(self, reason):

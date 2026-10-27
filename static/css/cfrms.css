@@ -1882,3 +1882,258 @@ html[data-theme="dark"] .reservation-time-error { color: #efaaa7; }
   .facility-calendar-day { min-height: 115px; padding: .35rem; }
   .facility-calendar-legend { gap: .55rem; }
 }
+
+
+/* ─── Color-Coded Calendar Occupancy Styles ─────────────────────────────────── */
+
+/* Occupancy percentage badge in calendar day header */
+.facility-occupancy-badge {
+  display: inline-block;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-top: 0.15rem;
+}
+
+/* Color codes for occupancy levels (applied to .facility-calendar-day) */
+
+/* GREEN: 0-33% occupancy */
+.facility-calendar-day.occupancy-green {
+  background-color: #d4edda;
+  border-right-color: #c3e6cb;
+  border-bottom-color: #c3e6cb;
+}
+
+.facility-calendar-day.occupancy-green .facility-occupancy-badge {
+  background-color: #c3e6cb;
+  color: #155724;
+}
+
+/* YELLOW: 34-66% occupancy */
+.facility-calendar-day.occupancy-yellow {
+  background-color: #fff3cd;
+  border-right-color: #ffeaa7;
+  border-bottom-color: #ffeaa7;
+}
+
+.facility-calendar-day.occupancy-yellow .facility-occupancy-badge {
+  background-color: #ffeaa7;
+  color: #856404;
+}
+
+/* RED: 67-100% occupancy */
+.facility-calendar-day.occupancy-red {
+  background-color: #f8d7da;
+  border-right-color: #f5c6cb;
+  border-bottom-color: #f5c6cb;
+}
+
+.facility-calendar-day.occupancy-red .facility-occupancy-badge {
+  background-color: #f5c6cb;
+  color: #721c24;
+}
+
+/* GRAY: unavailable */
+.facility-calendar-day.occupancy-gray {
+  background-color: #e2e3e5;
+  border-right-color: #d3d6db;
+  border-bottom-color: #d3d6db;
+}
+
+.facility-calendar-day.occupancy-gray .facility-occupancy-badge {
+  background-color: #d3d6db;
+  color: #383d41;
+}
+
+/* ─── Hover Tooltip Styles ────────────────────────────────────────────────────── */
+
+.facility-calendar-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1050;
+  min-width: 280px;
+  max-width: 400px;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: tooltip-fade-in 0.15s ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Show tooltip on hover */
+.facility-calendar-day:hover .facility-calendar-tooltip {
+  display: block;
+}
+
+/* Tooltip header */
+.facility-calendar-tooltip .tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.85rem;
+  color: #2c3e50;
+}
+
+.facility-calendar-tooltip .tooltip-header strong {
+  font-weight: 700;
+  color: #1a4f8a;
+}
+
+/* Tooltip content area */
+.facility-calendar-tooltip .tooltip-content {
+  margin: 0.5rem 0;
+  font-size: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Individual tooltip item (reservation or maintenance) */
+.facility-calendar-tooltip .tooltip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  color: #4a5568;
+}
+
+.facility-calendar-tooltip .event-time {
+  font-weight: 700;
+  color: #2c3e50;
+  min-width: 65px;
+}
+
+.facility-calendar-tooltip .event-type {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.facility-calendar-tooltip .event-type i {
+  font-size: 0.7rem;
+}
+
+/* Distinguish event types by status */
+.facility-calendar-tooltip .event-pending {
+  color: #856404;
+}
+
+.facility-calendar-tooltip .event-approved {
+  color: #155724;
+}
+
+.facility-calendar-tooltip .event-maintenance {
+  color: #664d03;
+}
+
+/* Empty state */
+.facility-calendar-tooltip .text-muted {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Tooltip footer */
+.facility-calendar-tooltip .tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+/* Tooltip arrow pointer */
+.facility-calendar-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #ffffff;
+  border-top-color: #ffffff;
+}
+
+.facility-calendar-tooltip::before {
+  content: "";
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid #dee2e6;
+  border-top-color: #dee2e6;
+}
+
+/* Dark mode adjustments */
+html[data-theme="dark"] .facility-calendar-day.occupancy-green {
+  background-color: #1e5a3b;
+  border-color: #1a4d32;
+}
+
+html[data-theme="dark"] .facility-calendar-day.occupancy-yellow {
+  background-color: #5a4a1a;
+  border-color: #4d3f16;
+}
+
+html[data-theme="dark"] .facility-calendar-day.occupancy-red {
+  background-color: #5a2a2a;
+  border-color: #4d2424;
+}
+
+html[data-theme="dark"] .facility-calendar-day.occupancy-gray {
+  background-color: #3a3a3a;
+  border-color: #2d2d2d;
+}
+
+html[data-theme="dark"] .facility-calendar-tooltip {
+  background-color: #2c3e50;
+  border-color: #3d4e63;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .facility-calendar-tooltip .tooltip-header {
+  border-bottom-color: #3d4e63;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .facility-calendar-tooltip .tooltip-header strong {
+  color: #79c6e5;
+}
+
+html[data-theme="dark"] .facility-calendar-tooltip::after {
+  border-top-color: #2c3e50;
+}
+
+html[data-theme="dark"] .facility-calendar-tooltip::before {
+  border-top-color: #3d4e63;
+}

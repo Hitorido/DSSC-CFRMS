@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, reverse_lazy
 
 from .forms import CFRMSPasswordChangeForm
-from .views import admin_dashboard_view, profile_view, register_view, settings_view
+from .views import admin_dashboard_view, profile_view, register_view, settings_view, staff_dashboard_view
 
 app_name = 'accounts'
 
@@ -27,6 +27,7 @@ urlpatterns = [
     ),
     path('profile/', profile_view, name='profile'),
     path('settings/', settings_view, name='settings'),
+    path('staff-dashboard/', staff_dashboard_view, name='staff_dashboard'),
     path('admin-console/', admin_dashboard_view, name='admin_dashboard'),
     path(
         'password/change/',
