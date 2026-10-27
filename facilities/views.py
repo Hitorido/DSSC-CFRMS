@@ -20,6 +20,73 @@ from .forms import FacilityCreateForm, FacilityMaintenanceForm
 from .models import Facility, FacilityMaintenance, FacilityType
 
 
+def _compute_occupancy_color(occupancy_percent):
+    """
+    Map occupancy percentage to a color code for calendar display.
+    
+    Returns:
+        'green': 0-33% (low occupancy)
+        'yellow': 34-66% (medium occupancy)
+        'red': 67-100% (high occupancy)
+        'gray': unavailable
+    """
+    if occupancy_percent is None:
+        return 'gray'
+    if occupancy_percent <= 33:
+        return 'green'
+    elif occupancy_percent <= 66:
+        return 'yellow'
+    else:
+        return 'red'
+
+
+def _calculate_daily_occupancy(day_date, reservations_by_date, facility):
+    """
+    Calculate the occupancy percentage for a facility on a given day.
+    
+    Occupancy % = (total minutes booked) / (total minutes in operating day) * 100
+    For now, we assume an 8-hour operating day (8am-6pm = 10 hours = 600 minutes)
+    
+    Args:
+        day_date: datetime.date object
+        reservations_by_date: dict mapping dates to list of reservation times
+        facility: Facility object
+    
+    Returns:
+        tuple: (occupancy_percent: int or None, reservation_count: int)
+    """
+    if day_date not in reservations_by_date:
+        return (0, 0)
+    
+    reservations = reservations_by_date[day_date]
+    
+    # Sum up total booked minutes
+    total_booked_minutes = 0
+    for res in reservations:
+        start_hour = res['start_time'].hour
+        start_minute = res['start_time'].minute
+        end_hour = res['end_time'].hour
+        end_minute = res['end_time'].minute
+        
+        start_total_minutes = start_hour * 60 + start_minute
+        end_total_minutes = end_hour * 60 + end_minute
+        
+        duration_minutes = end_total_minutes - start_total_minutes
+        if duration_minutes < 0:  # Handle edge case of overnight reservations
+            duration_minutes = 0
+        
+        total_booked_minutes += duration_minutes
+    
+    # Default operating day: 8am-6pm (10 hours = 600 minutes)
+    operating_minutes = 10 * 60
+    
+    if operating_minutes == 0:
+        return (0, len(reservations))
+    
+    occupancy_percent = min(100, int((total_booked_minutes / operating_minutes) * 100))
+    return (occupancy_percent, len(reservations))
+
+
 @login_required
 def facility_list_view(request):
     """
@@ -168,6 +235,9 @@ def facility_detail_view(request, pk):
 
     events_by_date = {}
     status_labels = dict(Reservation.Status.choices)
+    
+    # Map reservations by date (for occupancy calculation)
+    reservations_by_date = {}
     for reservation in reservations:
         is_blocking = reservation['status'] in Reservation.BLOCKING_STATUSES
         requester_is_student = (
@@ -188,7 +258,7 @@ def facility_detail_view(request, pk):
                 )
             )
         )
-        events_by_date.setdefault(reservation['reservation_date'], []).append({
+        event_data = {
             'reservation_id': reservation['pk'],
             'kind': 'reservation',
             'label': status_labels.get(reservation['status'], reservation['status'].title()),
@@ -197,7 +267,16 @@ def facility_detail_view(request, pk):
             'end_time': reservation['end_time'],
             'blocks_availability': is_blocking,
             'can_view_details': can_view_details,
-        })
+        }
+        events_by_date.setdefault(reservation['reservation_date'], []).append(event_data)
+        
+        # Track for occupancy calculation (only blocking statuses count)
+        if is_blocking:
+            reservations_by_date.setdefault(reservation['reservation_date'], []).append({
+                'start_time': reservation['start_time'],
+                'end_time': reservation['end_time'],
+            })
+    
     for maintenance in maintenance_records:
         events_by_date.setdefault(maintenance['maintenance_date'], []).append({
             'kind': 'maintenance',
@@ -229,20 +308,39 @@ def facility_detail_view(request, pk):
             )
             if day.month != month:
                 availability_label = ''
+                color_code = 'gray'
+                occupancy_percent = None
+                reservation_count = 0
             elif day < today:
                 availability_label = 'Past date'
+                color_code = 'gray'
+                occupancy_percent = None
+                reservation_count = 0
             elif facility.status != Facility.Status.AVAILABLE:
                 availability_label = facility.get_status_display()
-            elif any(event['blocks_availability'] for event in day_events):
-                availability_label = 'Limited'
+                color_code = 'gray'
+                occupancy_percent = None
+                reservation_count = 0
             else:
-                availability_label = 'No conflicts'
+                # Calculate occupancy for days in current month with facility available
+                occupancy_percent, reservation_count = _calculate_daily_occupancy(
+                    day, reservations_by_date, facility
+                )
+                color_code = _compute_occupancy_color(occupancy_percent)
+                
+                if any(event['blocks_availability'] for event in day_events):
+                    availability_label = 'Limited'
+                else:
+                    availability_label = 'No conflicts'
+            
             booking_url = ''
-            if can_request_reservation and day.month == month and day >= today and not day_events:
-                booking_url = reservation_form_url + '?' + urlencode({
-                    'facility': facility.pk,
-                    'date': day.isoformat(),
-                })
+            if facility.status == Facility.Status.AVAILABLE and day.month == month and day >= today and not any(event['blocks_availability'] for event in day_events):
+                if request.user.is_student_role:
+                    booking_url = reverse('reservations:create_reservation') + '?' + urlencode({
+                        'facility': facility.pk,
+                        'date': day.isoformat(),
+                    })
+            
             calendar_week.append({
                 'date': day,
                 'in_month': day.month == month,
@@ -252,6 +350,9 @@ def facility_detail_view(request, pk):
                 'events': day_events,
                 'availability_label': availability_label,
                 'booking_url': booking_url,
+                'color_code': color_code,
+                'occupancy_percent': occupancy_percent,
+                'reservation_count': reservation_count,
             })
         calendar_weeks.append(calendar_week)
 

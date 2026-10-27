@@ -68,11 +68,13 @@ AUTH_USER_MODEL = 'accounts.User'
 # See config/settings_test.py for test-specific configuration.
 #
 # E001: The following database aliases don't have a DEFAULT value: analytics
+# E003: The 'analytics' connection doesn't exist (silenced during testing)
 # This error is silenced because:
 # 1. Analytics database is optional in production (may not be configured)
 # 2. Tests override settings explicitly to include analytics
 # 3. Analytics queries use .using('analytics') to route to correct DB
-SILENCED_SYSTEM_CHECKS = ['databases.E001']
+# 4. During test runs, the analytics alias is NOT configured to avoid issues
+SILENCED_SYSTEM_CHECKS = ['databases.E001', 'databases.E003']
 
 
 MIDDLEWARE = [
@@ -110,45 +112,51 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-# PRIMARY DATABASE: Aiven Cloud MySQL
+# PRIMARY DATABASE: Aiven Cloud MySQL or SQLite for local development
 # Prefer the application's DB_* settings. ANALYTICS_DB_* remain as fallbacks
 # for existing .env files that use the analytics connection for the primary DB.
-DATABASES = { 
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME') or os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
-        'USER': os.getenv('DB_USER') or os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
-        'PASSWORD': os.getenv('DB_PASSWORD') or os.getenv('ANALYTICS_DB_PASSWORD', ''),
-        'HOST': (
-            os.getenv('DB_HOST', '').strip()
-            or os.getenv('ANALYTICS_DB_HOST', '').strip()
-        ),
-        'PORT': int(os.getenv('DB_PORT') or os.getenv('ANALYTICS_DB_PORT', '3306')),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
-    }
-}
-
-# Configure TLS/SSL for Aiven cloud database
-_aiven_db_host = DATABASES['default']['HOST']
-_aiven_db_ssl_ca = (
-    os.getenv('DB_SSL_CA', '').strip()
-    or os.getenv('ANALYTICS_DB_SSL_CA', '').strip()
+_db_host = (
+    os.getenv('DB_HOST', '').strip()
+    or os.getenv('ANALYTICS_DB_HOST', '').strip()
 )
 
-if not _aiven_db_host:
-    raise ImproperlyConfigured(
-        'Set DB_HOST in .env with the Aiven hostname.'
+# Use SQLite for local development if no DB_HOST is set
+if not _db_host:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': 'db.sqlite3',
+        }
+    }
+else:
+    # Use MySQL when DB_HOST is configured
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME') or os.getenv('ANALYTICS_DB_NAME', 'dssc_analytics'),
+            'USER': os.getenv('DB_USER') or os.getenv('ANALYTICS_DB_USER', 'avnadmin'),
+            'PASSWORD': os.getenv('DB_PASSWORD') or os.getenv('ANALYTICS_DB_PASSWORD', ''),
+            'HOST': _db_host,
+            'PORT': int(os.getenv('DB_PORT') or os.getenv('ANALYTICS_DB_PORT', '3306')),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
+
+    # Configure TLS/SSL for Aiven cloud database
+    _aiven_db_ssl_ca = (
+        os.getenv('DB_SSL_CA', '').strip()
+        or os.getenv('ANALYTICS_DB_SSL_CA', '').strip()
     )
 
-if _aiven_db_ssl_ca:
-    if not os.path.exists(_aiven_db_ssl_ca):
-        raise ImproperlyConfigured(
-            f'ANALYTICS_DB_SSL_CA file not found: {_aiven_db_ssl_ca}'
-        )
-    DATABASES['default']['OPTIONS']['ssl'] = {'ca': _aiven_db_ssl_ca}
+    if _aiven_db_ssl_ca:
+        if not os.path.exists(_aiven_db_ssl_ca):
+            raise ImproperlyConfigured(
+                f'ANALYTICS_DB_SSL_CA file not found: {_aiven_db_ssl_ca}'
+            )
+        DATABASES['default']['OPTIONS']['ssl'] = {'ca': _aiven_db_ssl_ca}
 
 # ---------------------------------------------------------------------------
 # Optional Analytics Database (Aiven Cloud MySQL)

@@ -51,6 +51,12 @@ class Facility(models.Model):
         UNAVAILABLE = 'UNAVAILABLE', 'Unavailable'
         MAINTENANCE = 'MAINTENANCE', 'Under Maintenance'
 
+    class NoiseLevel(models.TextChoices):
+        SILENT = 'silent', 'Silent'
+        LOW = 'low', 'Low'
+        MEDIUM = 'medium', 'Medium'
+        HIGH = 'high', 'High'
+
     facility_type = models.ForeignKey(
         FacilityType,
         on_delete=models.PROTECT,
@@ -81,6 +87,40 @@ class Facility(models.Model):
         default=Status.AVAILABLE,
         help_text='Current physical operational status (AVAILABLE, UNAVAILABLE, MAINTENANCE).',
     )
+    # Enhanced facility details for analytics
+    equipment_list = models.TextField(
+        blank=True,
+        default='',
+        help_text='Comma-separated list of equipment (e.g., "Projector, Whiteboard, A/C")',
+    )
+    hours_of_operation = models.CharField(
+        max_length=200,
+        blank=True,
+        default='8am-6pm',
+        help_text='Operating hours (e.g., "8am-6pm weekdays, 9am-5pm weekends")',
+    )
+    noise_level = models.CharField(
+        max_length=20,
+        choices=NoiseLevel.choices,
+        blank=True,
+        default=NoiseLevel.LOW,
+        help_text='Noise level classification for amenity filtering',
+    )
+    floor_number = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text='Building floor number (e.g., 2 for 2nd floor)',
+    )
+    building_code = models.CharField(
+        max_length=10,
+        blank=True,
+        default='',
+        help_text='Building identifier (e.g., "ADMIN", "SCI")',
+    )
+    has_wheelchair_access = models.BooleanField(
+        default=True,
+        help_text='Indicates wheelchair accessibility',
+    )
     is_synthetic = models.BooleanField(
         default=False,
         help_text='True if this record was created by the synthetic data generator.',
@@ -104,6 +144,10 @@ class Facility(models.Model):
                 name='facility_capacity_gt_zero',
             ),
         ]
+        indexes = [
+            models.Index(fields=['noise_level', 'capacity'], name='fac_noise_capacity_idx'),
+            models.Index(fields=['building_code', 'floor_number'], name='fac_building_floor_idx'),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.location}) - Cap: {self.capacity}"
@@ -112,6 +156,37 @@ class Facility(models.Model):
     def is_operational(self):
         """Returns True if the facility is physically available for reservations."""
         return self.status == self.Status.AVAILABLE
+
+    @property
+    def avg_reservation_duration(self):
+        """
+        Compute the average duration of completed/approved reservations.
+        Returns a timedelta object representing the average duration.
+        Returns None if no reservations exist.
+        """
+        from django.db.models import Avg, F, ExpressionWrapper, DurationField
+        from reservations.models import Reservation
+        from datetime import timedelta
+
+        reservations = Reservation.objects.filter(
+            facility=self,
+            status__in=['APPROVED', 'COMPLETED'],
+        )
+
+        if not reservations.exists():
+            return None
+
+        # Calculate average duration using ExpressionWrapper
+        result = reservations.aggregate(
+            avg_duration=Avg(
+                ExpressionWrapper(
+                    F('end_time') - F('start_time'),
+                    output_field=DurationField(),
+                )
+            )
+        )
+
+        return result['avg_duration']
 
 
 class FacilityMaintenance(models.Model):

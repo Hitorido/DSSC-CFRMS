@@ -31,4 +31,16 @@ urlpatterns = [
     
     # Demand forecasting endpoint (Phase 6.5.3)
     path('demand-forecast/', views.demand_forecast, name='demand-forecast'),
+    
+    # Peak hours analysis endpoint (Task 9)
+    path('peak-hours/', views.peak_hours, name='peak-hours'),
+    
+    # Occupancy by facility endpoint (Task 9)
+    path('occupancy-by-facility/', views.occupancy_by_facility, name='occupancy-by-facility'),
+    
+    # Recommendations endpoint (Task 9)
+    path('recommendations/', views.recommendations, name='recommendations'),
+    
+    # System calendar endpoint (Task 9)
+    path('system-calendar/', views.system_calendar, name='system-calendar'),
 ]

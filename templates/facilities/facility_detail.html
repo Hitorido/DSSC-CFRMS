@@ -89,9 +89,10 @@
     </div>
 
     <div class="facility-calendar-legend" aria-label="Calendar legend">
-      <span><i class="legend-dot legend-open"></i>No active conflicts</span>
-      <span><i class="legend-dot legend-reserved"></i>Reservation</span>
-      <span><i class="legend-dot legend-maintenance"></i>Maintenance</span>
+      <span><i class="legend-dot" style="background: #d4edda;"></i>Low occupancy (0-33%)</span>
+      <span><i class="legend-dot" style="background: #fff3cd;"></i>Medium occupancy (34-66%)</span>
+      <span><i class="legend-dot" style="background: #f8d7da;"></i>High occupancy (67-100%)</span>
+      <span><i class="legend-dot" style="background: #e2e3e5;"></i>Unavailable</span>
     </div>
 
     <p class="facility-calendar-note">
@@ -108,7 +109,7 @@
 
         {% for week in calendar_weeks %}
           {% for day in week %}
-          <div id="facility-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_selected_date %} is-selected-date{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
+          <div id="facility-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_selected_date %} is-selected-date{% endif %}{% if day.is_past %} is-past{% endif %}{% if day.color_code %} occupancy-{{ day.color_code }}{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
             {% if day.booking_url %}
             <a class="facility-calendar-day-action" href="{{ day.booking_url }}" aria-label="Book {{ facility.name }} on {{ day.date|date:'F j, Y' }}">
               <span>Book this date <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
@@ -116,13 +117,48 @@
             {% endif %}
             <div class="facility-calendar-day-head">
               <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
-              {% if day.in_month and day.availability_label %}
+              {% if day.in_month and day.occupancy_percent is not None %}
+                <span class="facility-occupancy-badge" title="Occupancy: {{ day.occupancy_percent }}%">
+                  {{ day.occupancy_percent }}%
+                </span>
+              {% elif day.in_month and day.availability_label %}
                 <span class="facility-availability{% if day.is_past %} is-past{% elif day.availability_label == 'No conflicts' %} is-open{% elif day.availability_label == 'Limited' %} is-limited{% else %} is-unavailable{% endif %}">
                   {{ day.availability_label }}
                 </span>
               {% endif %}
             </div>
+            
+            <!-- Tooltip content for hover display -->
             {% if day.in_month %}
+            <div class="facility-calendar-tooltip" role="tooltip" aria-label="Reservations and maintenance for {{ day.date|date:'F j' }}">
+              <div class="tooltip-header">
+                <strong>{{ day.date|date:'F j, Y' }}</strong>
+              </div>
+              {% if day.events %}
+                <div class="tooltip-content">
+                  {% for event in day.events %}
+                    <div class="tooltip-item event-{{ event.status_class }}">
+                      <span class="event-time">{{ event.start_time|time:'H:i' }}-{{ event.end_time|time:'H:i' }}</span>
+                      <span class="event-type">
+                        {% if event.kind == 'reservation' %}
+                          <i class="bi bi-calendar-check"></i> {{ event.label }}
+                        {% else %}
+                          <i class="bi bi-tools"></i> Maintenance
+                        {% endif %}
+                      </span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="tooltip-content">
+                  <p class="text-muted">No reservations or maintenance scheduled</p>
+                </div>
+              {% endif %}
+              <div class="tooltip-footer">
+                <small>Occupancy: {{ day.occupancy_percent|default:"0" }}%</small>
+              </div>
+            </div>
+            
             <div class="facility-calendar-events">
               {% for event in day.events %}
               {% if event.kind == 'reservation' and event.status_class == 'approved' and event.can_view_details and not day.is_past %}

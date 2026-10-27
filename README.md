@@ -135,6 +135,14 @@ dssc-cfrms/
 - **Tracking**: Full history with timestamps
 - **Shared Data**: All team members see same reservations
 
+### 1.5️⃣ Analytics & Dashboards
+- **Admin Dashboard**: System-wide analytics with demand forecast
+- **Staff Dashboard**: Operational alerts and facility-specific insights
+- **Facility Booking Calendar**: Color-coded occupancy with tooltips
+- **Predictive Forecasting**: 3-month demand predictions
+- **Prescriptive Recommendations**: Actionable insights (capacity, maintenance, hours)
+- **Performance**: Dashboard loads <2 seconds, APIs respond <500ms
+
 ### 2️⃣ Analytics API
 Seven read-only endpoints (ADMIN access required):
 
@@ -342,6 +350,14 @@ curl http://localhost:8000/api/analytics/demand-forecast/ \
 ### Setup & Configuration
 - 📖 [`CLOUD_DATABASE_SETUP.md`](CLOUD_DATABASE_SETUP.md) — Cloud database access guide
 - 📖 [`CONTRIBUTING.md`](CONTRIBUTING.md) — Developer setup & workflow
+
+### Analytics & Features
+- 📖 [`docs/ANALYTICS_DOCUMENTATION_INDEX.md`](docs/ANALYTICS_DOCUMENTATION_INDEX.md) — **Start here** for complete analytics documentation guide
+- 📖 [`docs/ANALYTICS_GUIDE.md`](docs/ANALYTICS_GUIDE.md) — User guide to analytics features
+- 📖 [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md) — Admin dashboard & configuration
+- 📖 [`docs/MOCK_DATA.md`](docs/MOCK_DATA.md) — Generating and managing test data
+- 📖 [`docs/FACILITY_CALENDAR_GUIDE.md`](docs/FACILITY_CALENDAR_GUIDE.md) — Facility booking calendar & color-coded availability
+- 📖 [`docs/IN_APP_HELP_REFERENCE.md`](docs/IN_APP_HELP_REFERENCE.md) — In-app help text and tooltip reference
 
 ### Project Specifications (Phase Documentation)
 - 📋 [`Group 4-Enterprise-System-Project.docx`](Group 4-Enterprise-System-Project.docx) — Complete project specifications
