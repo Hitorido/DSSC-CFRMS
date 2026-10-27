@@ -699,23 +699,31 @@
     // Refresh facility availability check
     refreshAvailability();
     
-    // Trigger calendar reload when facility changes
+    // Reload calendar when facility changes
     const facilityId = facilitySelect.value;
-    if (facilityId) {
-      const facilityCalendarContainer = document.getElementById('facilityCalendarContainer');
-      if (facilityCalendarContainer) {
-        const widget = facilityCalendarContainer.querySelector('.facility-calendar-widget');
-        if (widget) {
-          // Update the data attribute
-          widget.dataset.facilityId = facilityId;
-          // Dispatch event that the calendar widget listens for
-          const event = new CustomEvent('facilityChanged', { 
-            detail: { facilityId: facilityId },
-            bubbles: true 
-          });
-          widget.dispatchEvent(event);
-        }
-      }
+    const facilityCalendarContainer = document.getElementById('facilityCalendarContainer');
+    
+    if (facilityId && facilityCalendarContainer) {
+      // Reload the entire calendar widget via AJAX
+      fetch(`/reservations/get-calendar-widget/?facility_id=${facilityId}`)
+        .then(response => response.text())
+        .then(html => {
+          facilityCalendarContainer.innerHTML = html;
+          // Re-attach event listeners for the new calendar
+          const newWidget = facilityCalendarContainer.querySelector('.facility-calendar-widget');
+          if (newWidget) {
+            // The calendar JavaScript should auto-initialize from the widget
+          }
+        })
+        .catch(error => console.error('Error loading calendar:', error));
+    } else if (!facilityId && facilityCalendarContainer) {
+      // Show the "select facility" message
+      facilityCalendarContainer.innerHTML = `
+        <div class="alert alert-info" role="status">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          Select a facility above to see the calendar and choose a date.
+        </div>
+      `;
     }
   });
   
