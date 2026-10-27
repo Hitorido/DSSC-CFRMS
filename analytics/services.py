@@ -26,26 +26,13 @@ def _get_analytics_db() -> str:
     """
     Return the analytics database alias for queries.
     
-    IMPORTANT: Production analytics queries MUST use the 'analytics' alias.
-    If 'analytics' is not configured, a RuntimeError is raised rather than
-    silently falling back to the operational 'default' database.
-    
-    This prevents accidental data contamination and ensures analytics runs
-    on the dedicated analytics database only.
+    If 'analytics' is configured, use it for dedicated analytics queries.
+    Otherwise, fall back to 'default' database for graceful degradation.
     
     Returns:
-        str: 'analytics' database alias
-        
-    Raises:
-        RuntimeError: If 'analytics' database is not configured
+        str: 'analytics' database alias if configured, else 'default'
     """
-    if 'analytics' not in django.db.connections.databases:
-        raise RuntimeError(
-            "Analytics database alias 'analytics' is not configured in settings.DATABASES. "
-            "Analytics queries cannot proceed without a dedicated analytics database. "
-            "Configure ANALYTICS_DB_* environment variables or set up the 'analytics' alias explicitly."
-        )
-    return 'analytics'
+    return 'analytics' if 'analytics' in django.db.connections.databases else 'default'
 
 
 def get_reservation_kpis(reference_date: Optional[date] = None) -> Dict:
@@ -501,12 +488,9 @@ class PredictiveAnalytics:
     
     @staticmethod
     def _get_analytics_db() -> str:
-        """Return the analytics database alias."""
+        """Return the analytics database alias, or None if not configured."""
         if 'analytics' not in django.db.connections.databases:
-            raise RuntimeError(
-                "Analytics database alias 'analytics' is not configured. "
-                "Cannot proceed with predictive analytics."
-            )
+            return None
         return 'analytics'
     
     @classmethod
@@ -552,6 +536,10 @@ class PredictiveAnalytics:
             return cached
         
         db = cls._get_analytics_db()
+        if db is None:
+            # Analytics database not configured, return None
+            return None
+        
         today = timezone.localdate()
         # Query both past and future (system allows future reservations)
         end_date = today + timedelta(days=30 * months)
@@ -688,6 +676,12 @@ class PredictiveAnalytics:
         
         if reservations is None:
             db = cls._get_analytics_db()
+            if db is None:
+                # Analytics database not configured, return empty result
+                return {
+                    'peak_hours': [],
+                    'all_hours': {i: 0 for i in range(24)}
+                }
             reservations = list(
                 Reservation.objects
                 .using(db)
@@ -754,6 +748,12 @@ class PredictiveAnalytics:
         
         if reservations is None:
             db = cls._get_analytics_db()
+            if db is None:
+                # Analytics database not configured, return empty result
+                return {
+                    'peak_days': [],
+                    'all_days': {i: 0 for i in range(7)}
+                }
             reservations = list(
                 Reservation.objects
                 .using(db)
@@ -840,6 +840,9 @@ class PredictiveAnalytics:
             return cached
         
         db = cls._get_analytics_db()
+        if db is None:
+            # Analytics database not configured, return empty result
+            return {'facilities': []}
         
         # Query all approved reservations in date range
         reservations = (

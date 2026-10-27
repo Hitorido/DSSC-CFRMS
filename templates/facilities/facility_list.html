@@ -94,6 +94,7 @@
           <th scope="col">Type</th>
           <th scope="col">Location</th>
           <th scope="col" class="text-center">Capacity</th>
+          <th scope="col" class="d-none d-lg-table-cell">Noise Level</th>
           <th scope="col" class="text-center">Status</th>
           {% if user.is_student_role and facility_data_scope != 'analytics_sample' %}
           <th scope="col" class="text-center">Action</th>
@@ -126,6 +127,11 @@
           </td>
           <td class="text-center">
             <i class="bi bi-people text-muted me-1"></i>{{ facility.capacity }}
+          </td>
+          <td class="d-none d-lg-table-cell">
+            <span class="badge bg-light text-dark border">
+              <i class="bi bi-volume-up me-1"></i>{{ facility.get_noise_level_display }}
+            </span>
           </td>
           <td class="text-center">
             {% if facility_data_scope == 'analytics_sample' %}

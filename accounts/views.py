@@ -929,8 +929,8 @@ def admin_dashboard_view(request):
             ])
 
         # Generate recommendations based on analytics
+        recommendations = []
         if analytics_overview:
-            recommendations = []
             
             # High occupancy recommendation
             if analytics_overview['avg_occupancy_percent'] > 80:

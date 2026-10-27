@@ -1,0 +1,640 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facility Booking Calendar - {{ facility.name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --green-available: #28a745;
+            --yellow-moderate: #ffc107;
+            --red-busy: #dc3545;
+            --gray-unavailable: #6c757d;
+        }
+
+        .calendar-container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .facility-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 0;
+        }
+
+        .facility-header h2 {
+            margin-bottom: 10px;
+        }
+
+        .facility-info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .facility-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .calendar-wrapper {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .calendar-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .calendar-controls h4 {
+            margin: 0;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            border: 1px solid #dee2e6;
+            background: white;
+            color: #495057;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .calendar-nav button:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .weekday-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .weekday-header div {
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        /* Color coding by occupancy */
+        .day-green {
+            background-color: var(--green-available);
+            color: white;
+            border-color: #1e7e34;
+        }
+
+        .day-green:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .day-yellow {
+            background-color: var(--yellow-moderate);
+            color: #333;
+            border-color: #ff9800;
+        }
+
+        .day-yellow:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+        }
+
+        .day-red {
+            background-color: var(--red-busy);
+            color: white;
+            border-color: #bd2130;
+        }
+
+        .day-red:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .day-gray {
+            background-color: var(--gray-unavailable);
+            color: white;
+            border-color: #5a6268;
+            cursor: not-allowed;
+        }
+
+        .day-gray:hover {
+            transform: none;
+        }
+
+        .day-other-month {
+            color: #ccc;
+            background: #f8f9fa;
+            cursor: default;
+        }
+
+        .day-other-month:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .day-today {
+            border-color: #667eea;
+            border-width: 3px;
+        }
+
+        /* Tooltip styling */
+        .day-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: nowrap;
+            z-index: 1000;
+            font-size: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            min-width: 200px;
+        }
+
+        .day-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #333;
+        }
+
+        .calendar-day:hover .day-tooltip {
+            display: block;
+        }
+
+        .tooltip-content {
+            text-align: left;
+            max-width: 300px;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+
+        .tooltip-section {
+            margin-top: 10px;
+        }
+
+        .tooltip-section-title {
+            font-weight: 500;
+            color: #aaa;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .tooltip-item {
+            padding: 5px 0;
+            font-size: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .tooltip-item-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .reservation-icon::before {
+            content: '📅';
+        }
+
+        .maintenance-icon::before {
+            content: '🔧';
+        }
+
+        .empty-message {
+            color: #ccc;
+            font-size: 11px;
+            padding: 5px 0;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+        }
+
+        .legend-green {
+            background-color: var(--green-available);
+        }
+
+        .legend-yellow {
+            background-color: var(--yellow-moderate);
+        }
+
+        .legend-red {
+            background-color: var(--red-busy);
+        }
+
+        .legend-gray {
+            background-color: var(--gray-unavailable);
+        }
+
+        .occupancy-badge {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 576px) {
+            .calendar-day {
+                font-size: 14px;
+            }
+
+            .day-tooltip {
+                min-width: 180px;
+                font-size: 11px;
+                padding: 12px;
+                bottom: 110%;
+            }
+
+            .weekday-header {
+                gap: 5px;
+            }
+
+            .calendar-grid {
+                gap: 5px;
+            }
+
+            .facility-info {
+                gap: 15px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'facilities:list' %}">
+                <i class="bi bi-building"></i> DSSC CFRMS
+            </a>
+            <span class="navbar-text ms-auto">
+                <a href="{% url 'accounts:home' %}" class="text-decoration-none">← Back</a>
+            </span>
+        </div>
+    </nav>
+
+    <div class="calendar-container">
+        <!-- Facility Header -->
+        <div class="facility-header">
+            <h2><i class="bi bi-calendar-range"></i> {{ facility.name }} - Booking Calendar</h2>
+            <div class="facility-info">
+                <div class="facility-info-item">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ facility.location }}</span>
+                </div>
+                <div class="facility-info-item">
+                    <i class="bi bi-people"></i>
+                    <span>Capacity: {{ facility.capacity }} people</span>
+                </div>
+                {% if facility.hours_of_operation %}
+                <div class="facility-info-item">
+                    <i class="bi bi-clock"></i>
+                    <span>{{ facility.hours_of_operation }}</span>
+                </div>
+                {% endif %}
+                {% if facility.noise_level %}
+                <div class="facility-info-item">
+                    <i class="bi bi-volume-up"></i>
+                    <span>Noise Level: {{ facility.get_noise_level_display }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar-wrapper">
+            <!-- Calendar Controls -->
+            <div class="calendar-controls">
+                <h4 id="current-month"></h4>
+                <div class="calendar-nav">
+                    <button onclick="previousMonth()">&larr; Previous</button>
+                    <button onclick="todayMonth()">Today</button>
+                    <button onclick="nextMonth()">Next &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Weekday Headers -->
+            <div class="weekday-header">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="calendar-grid" id="calendar-grid"></div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color legend-green"></div>
+                    <span>Low Occupancy (0-33%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-yellow"></div>
+                    <span>Moderate Occupancy (34-66%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-red"></div>
+                    <span>High Occupancy (67-100%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-gray"></div>
+                    <span>Unavailable</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const facilityId = {{ facility.id }};
+        const facilityStatus = '{{ facility.status }}';
+        let currentDate = new Date();
+
+        function getDaysInMonth(date) {
+            return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        }
+
+        function getFirstDayOfMonth(date) {
+            return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        }
+
+        function isToday(date) {
+            const today = new Date();
+            return date.getDate() === today.getDate() &&
+                   date.getMonth() === today.getMonth() &&
+                   date.getFullYear() === today.getFullYear();
+        }
+
+        function getOccupancyColor(occupancy) {
+            // occupancy is a percentage (0-100)
+            if (occupancy < 34) return 'day-green';
+            if (occupancy < 67) return 'day-yellow';
+            return 'day-red';
+        }
+
+        async function fetchDayData(date) {
+            const dateStr = date.toISOString().split('T')[0];
+            try {
+                const response = await fetch(`/facilities/${facilityId}/calendar-api/${dateStr}/`);
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching day data:', error);
+            }
+            return {
+                occupancy: 0,
+                reservations: [],
+                maintenance: [],
+                is_available: facilityStatus === 'AVAILABLE'
+            };
+        }
+
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            const [hours, minutes] = timeStr.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:${minutes} ${ampm}`;
+        }
+
+        function createDayElement(date, dayData) {
+            const dayDiv = document.createElement('div');
+            const dayNum = date.getDate();
+
+            if (!dayData.is_available) {
+                dayDiv.className = 'calendar-day day-gray';
+                dayDiv.innerHTML = dayNum;
+            } else {
+                const colorClass = getOccupancyColor(dayData.occupancy);
+                dayDiv.className = `calendar-day ${colorClass}`;
+
+                // Add today indicator
+                if (isToday(date)) {
+                    dayDiv.classList.add('day-today');
+                }
+
+                dayDiv.innerHTML = dayNum;
+
+                // Create tooltip
+                const tooltip = document.createElement('div');
+                tooltip.className = 'day-tooltip';
+
+                let tooltipHTML = `
+                    <div class="tooltip-content">
+                        <div class="tooltip-title">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                        <div class="occupancy-badge">${dayData.occupancy}% Occupied</div>
+                `;
+
+                // Add reservations section
+                if (dayData.reservations.length > 0) {
+                    tooltipHTML += `
+                        <div class="tooltip-section">
+                            <div class="tooltip-section-title">Reservations (${dayData.reservations.length})</div>
+                    `;
+                    dayData.reservations.forEach(res => {
+                        tooltipHTML += `
+                            <div class="tooltip-item">
+                                <div class="tooltip-item-icon reservation-icon"></div>
+                                <div>
+                                    <strong>${formatTime(res.start_time)} - ${formatTime(res.end_time)}</strong><br>
+                                    ${res.purpose}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    tooltipHTML += `</div>`;
+                } else if (dayData.maintenance.length === 0) {
+                    tooltipHTML += `
+                        <div class="tooltip-section">
+                            <div class="empty-message">No reservations</div>
+                        </div>
+                    `;
+                }
+
+                // Add maintenance section
+                if (dayData.maintenance.length > 0) {
+                    tooltipHTML += `
+                        <div class="tooltip-section">
+                            <div class="tooltip-section-title">Maintenance (${dayData.maintenance.length})</div>
+                    `;
+                    dayData.maintenance.forEach(maint => {
+                        tooltipHTML += `
+                            <div class="tooltip-item">
+                                <div class="tooltip-item-icon maintenance-icon"></div>
+                                <div>
+                                    <strong>${formatTime(maint.start_time)} - ${formatTime(maint.end_time)}</strong><br>
+                                    ${maint.title}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    tooltipHTML += `</div>`;
+                }
+
+                tooltipHTML += `</div>`;
+                tooltip.innerHTML = tooltipHTML;
+                dayDiv.appendChild(tooltip);
+            }
+
+            return dayDiv;
+        }
+
+        async function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            // Update month display
+            const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            document.getElementById('current-month').textContent = monthName;
+
+            // Clear grid
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const daysInMonth = getDaysInMonth(currentDate);
+            const firstDay = getFirstDayOfMonth(currentDate);
+
+            // Add previous month's days
+            const prevMonthDays = getDaysInMonth(new Date(year, month - 1, 1));
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day day-other-month';
+                dayDiv.textContent = prevMonthDays - i;
+                grid.appendChild(dayDiv);
+            }
+
+            // Add current month's days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayData = await fetchDayData(date);
+                const dayElement = createDayElement(date, dayData);
+                grid.appendChild(dayElement);
+            }
+
+            // Add next month's days
+            const totalCells = grid.children.length;
+            const remainingCells = 42 - totalCells;
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day day-other-month';
+                dayDiv.textContent = day;
+                grid.appendChild(dayDiv);
+            }
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function todayMonth() {
+            currentDate = new Date();
+            renderCalendar();
+        }
+
+        // Initial render
+        renderCalendar();
+    </script>
+</body>
+</html>

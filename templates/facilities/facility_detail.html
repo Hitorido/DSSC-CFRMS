@@ -48,6 +48,61 @@
         <strong>{{ facility.get_status_display }}</strong>
       </div>
     </div>
+    
+    {# Additional facility details #}
+    <div class="row g-3 facility-detail-facts mt-3 pt-3 border-top">
+      {% if facility.building_code %}
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Building</span>
+        <strong><i class="bi bi-building me-1"></i>{{ facility.building_code }}</strong>
+      </div>
+      {% endif %}
+      {% if facility.floor_number is not None %}
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Floor</span>
+        <strong><i class="bi bi-diagram-3 me-1"></i>{{ facility.floor_number }}</strong>
+      </div>
+      {% endif %}
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Noise Level</span>
+        <strong><i class="bi bi-volume-up me-1"></i>{{ facility.get_noise_level_display }}</strong>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <span class="facility-detail-label">Wheelchair Access</span>
+        <strong>
+          {% if facility.has_wheelchair_access %}
+            <i class="bi bi-check-circle me-1" style="color: #28a745;"></i>Yes
+          {% else %}
+            <i class="bi bi-x-circle me-1" style="color: #dc3545;"></i>No
+          {% endif %}
+        </strong>
+      </div>
+    </div>
+    
+    {% if facility.hours_of_operation %}
+    <div class="row g-3 facility-detail-facts mt-3">
+      <div class="col-12">
+        <span class="facility-detail-label">Hours of Operation</span>
+        <strong><i class="bi bi-clock me-1"></i>{{ facility.hours_of_operation }}</strong>
+      </div>
+    </div>
+    {% endif %}
+    
+    {% if facility.equipment_list %}
+    <div class="row g-3 facility-detail-facts mt-3">
+      <div class="col-12">
+        <span class="facility-detail-label">Equipment</span>
+        <div style="margin-top: 0.5rem;">
+          {% for item in facility.equipment_list|split:"," %}
+            <span class="badge bg-light text-dark border me-2 mb-2">
+              <i class="bi bi-gear me-1"></i>{{ item|trim }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
     {% if facility.description %}
     <p class="facility-detail-description mb-0 mt-3">{{ facility.description }}</p>
     {% endif %}

@@ -158,7 +158,21 @@
                   <span>Step 1 of 2</span>
                   <strong>Choose a date</strong>
                 </div>
-                <label for="{{ form.reservation_date.id_for_label }}" id="reservationDateLabel" class="form-label">
+                
+                {# Facility Booking Calendar with color-coded occupancy #}
+                {% if form.facility.value %}
+                <div id="facilityCalendarContainer" style="margin-bottom: 15px;">
+                  {% include "components/facility_calendar_widget.html" with facility_id=form.facility.value %}
+                </div>
+                {% else %}
+                <div class="alert alert-info" role="status">
+                  <i class="bi bi-info-circle-fill me-2"></i>
+                  Select a facility above to see the calendar and choose a date.
+                </div>
+                {% endif %}
+                
+                {# Hidden date input for form submission (updated by calendar selection) #}
+                <label for="{{ form.reservation_date.id_for_label }}" id="reservationDateLabel" class="form-label" style="margin-top: 15px;">
                   <i class="bi bi-calendar-date me-1" aria-hidden="true"></i>{{ form.reservation_date.label }}
                 </label>
                 <input type="date"
@@ -171,6 +185,7 @@
                 {% if form.reservation_date.errors %}
                   <div id="reservationDateError" class="invalid-feedback">{{ form.reservation_date.errors.0 }}</div>
                 {% endif %}
+                
                 <div id="reservationDateCalendar" class="reservation-date-calendar" hidden>
                   <div class="reservation-date-toolbar">
                     <strong id="reservationCalendarMonth" data-calendar-month aria-live="polite"></strong>
@@ -435,6 +450,22 @@
     scheduleDateStep.hidden = false;
     scheduleTimeStep.hidden = true;
     dateCalendar.refresh();
+    
+    // Rebuild calendar component for new facility
+    const facilityId = facilitySelect.value;
+    if (facilityId) {
+      const calendarContainer = document.getElementById('facilityCalendarContainer');
+      if (!calendarContainer || !calendarContainer.querySelector('[data-facility-id]')) {
+        // Calendar doesn't exist or facility changed, need to inject it
+        if (calendarContainer) {
+          // Force calendar re-render by changing facility_id
+          const facilityCalendarWidget = calendarContainer.querySelector('.facility-calendar-widget');
+          if (facilityCalendarWidget) {
+            facilityCalendarWidget.dataset.facilityId = facilityId;
+          }
+        }
+      }
+    }
   }
 
   function showTimeStep() {
@@ -657,7 +688,52 @@
     }
   });
 
-  facilitySelect.addEventListener('change', refreshAvailability);
+  facilitySelect.addEventListener('change', function() {
+    // Clear date/time when facility changes
+    dateInput.value = '';
+    startInput.value = '';
+    endInput.value = '';
+    updateScheduleSummary();
+    showDateStep();
+    
+    // Refresh facility availability check
+    refreshAvailability();
+    
+    // Trigger calendar reload when facility changes
+    const facilityId = facilitySelect.value;
+    if (facilityId) {
+      const facilityCalendarContainer = document.getElementById('facilityCalendarContainer');
+      if (facilityCalendarContainer) {
+        const widget = facilityCalendarContainer.querySelector('.facility-calendar-widget');
+        if (widget) {
+          // Update the data attribute
+          widget.dataset.facilityId = facilityId;
+          // Dispatch event that the calendar widget listens for
+          const event = new CustomEvent('facilityChanged', { 
+            detail: { facilityId: facilityId },
+            bubbles: true 
+          });
+          widget.dispatchEvent(event);
+        }
+      }
+    }
+  });
+  
+  // Handle calendar date selection from the facility calendar widget
+  document.addEventListener('calendarDateSelected', function(event) {
+    const selectedDate = event.detail.date;
+    // Set the date input field
+    dateInput.value = selectedDate;
+    // Update the summary display
+    updateScheduleSummary();
+    // Move to time selection step
+    showTimeStep();
+    // Open the time picker for start time
+    timePicker.open(startInput);
+    // Check availability
+    refreshAvailability();
+  });
+  
   updateScheduleSummary();
   if (dateInput.classList.contains('is-invalid')) {
     openSchedulePicker('date');
