@@ -29,8 +29,12 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'insecure-default-change-me')
 DEBUG = os.getenv('DJANGO_DEBUG', os.getenv('DEBUG', 'False')).lower() in ('true', '1', 't')
 
 # ALLOWED_HOSTS parsed from comma-separated string
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if host.strip()]
-
+ALLOWED_HOSTS = [
+    '127.0.0.1', 
+    'localhost', 
+    'dssc-cfrms.vercel.app', 
+    '.vercel.app'
+]
 
 
 # Application definition
@@ -73,6 +77,7 @@ SILENCED_SYSTEM_CHECKS = ['databases.E001']
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -303,6 +308,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
