@@ -81,7 +81,7 @@ The feature spans multiple Django apps (reservations, facilities) and introduces
   - Unit tests: empty values filtered, special characters encoded
   - Used in all pagination link URLs to preserve state
 
-- [-] 10. Write Integration and Property-Based Tests for Pagination Feature
+- [ ] 10. Write Integration and Property-Based Tests for Pagination Feature
   - Integration tests: pagination, search, filters, combined filters across all views
   - Filter state preservation tests: navigate pages, verify filters in URL
   - Edge case tests: invalid pages, empty results, clearing filters
@@ -96,7 +96,7 @@ The feature spans multiple Django apps (reservations, facilities) and introduces
     - Property 8: Empty results display message
   - Performance tests: verify < 1 second for 10,000 records with filters
 
-- [ ] 11. Update Reservation Templates with Pagination UI
+- [x] 11. Update Reservation Templates with Pagination UI
   - my_reservations.html: search box, status filter, pagination, metadata, no-results message
   - pending_reservations.html: search box, status filter, pagination, metadata, no-results message
   - reservation_report.html: collapsible filter panel, search, status, dates, facility, pagination

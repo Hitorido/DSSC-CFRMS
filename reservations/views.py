@@ -133,9 +133,13 @@ def pending_reservations_view(request):
     ).exclude(requested_by__user_type=User.UserType.FACULTY)
     reservations = student_requests.select_related('facility', 'requested_by')
     status = request.GET.get('status', Reservation.Status.PENDING)
+    show_appeals = request.GET.get('show_appeals', '').lower() == 'true'
     search = request.GET.get('search', '').strip()
 
-    if status and status != 'ALL' and status in dict(Reservation.Status.choices):
+    if show_appeals:
+        # Show only APPEAL status reservations (appellable requests being appealed)
+        reservations = reservations.filter(status=Reservation.Status.APPEAL)
+    elif status and status != 'ALL' and status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
     elif status != 'ALL':
         status = Reservation.Status.PENDING
@@ -166,6 +170,7 @@ def pending_reservations_view(request):
         approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
         completed=Count('pk', filter=Q(status=Reservation.Status.COMPLETED)),
         rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        appeal=Count('pk', filter=Q(status=Reservation.Status.APPEAL)),
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
 
@@ -175,9 +180,11 @@ def pending_reservations_view(request):
         'summary': summary,
         'statuses': Reservation.Status.choices,
         'selected_status': status,
+        'show_appeals': show_appeals,
         'filters': {
             'status': status,
             'search': search,
+            'show_appeals': show_appeals,
         },
         'filter_query': filter_query_string(request),
         **pagination,
@@ -533,6 +540,22 @@ def appeal_reservation_view(request, pk):
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
+            # Create notification for all staff/admins when appeal submitted
+            from notifications.models import Notification
+            staff_users = User.objects.filter(
+                Q(role=User.Role.STAFF) | Q(role=User.Role.ADMIN)
+            )
+            appeal_message = (
+                f'Appeal #{reservation.appeal_count} submitted for Reservation #{reservation.pk} '
+                f'by {reservation.requested_by.get_full_name() or reservation.requested_by.username}. '
+                f'Facility: {reservation.facility.name}. Date: {reservation.reservation_date}.'
+            )
+            for staff_user in staff_users:
+                Notification.objects.create(
+                    recipient=staff_user,
+                    reservation=reservation,
+                    message=appeal_message,
+                )
             messages.success(
                 request,
                 f'Appeal {reservation.appeal_count} of {Reservation.MAX_APPEALS} submitted. '

@@ -3,6 +3,110 @@
 
 {% block title %}{{ dashboard_title|default:"Dashboard" }}{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* Calendar occupancy color coding */
+  .facility-calendar-day.occupancy-green {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    box-shadow: inset 0 0 0 2px #28a745;
+  }
+  .facility-calendar-day.occupancy-green .facility-calendar-day-head time {
+    color: white;
+    font-weight: 700;
+  }
+  
+  .facility-calendar-day.occupancy-yellow {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    box-shadow: inset 0 0 0 2px #ffc107;
+  }
+  .facility-calendar-day.occupancy-yellow .facility-calendar-day-head time {
+    color: #333;
+    font-weight: 700;
+  }
+  
+  .facility-calendar-day.occupancy-red {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    box-shadow: inset 0 0 0 2px #dc3545;
+  }
+  .facility-calendar-day.occupancy-red .facility-calendar-day-head time {
+    color: white;
+    font-weight: 700;
+  }
+  
+  /* Occupancy badge styling */
+  .calendar-day-occupancy-badge {
+    display: inline-block;
+    background: var(--cfrms-primary);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  
+  /* Tooltip styling */
+  .facility-calendar-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2c3e50;
+    color: white;
+    padding: 10px 12px;
+    border-radius: 6px;
+    z-index: 1000;
+    font-size: 11px;
+    white-space: nowrap;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  }
+  
+  .facility-calendar-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #2c3e50;
+  }
+  
+  .facility-calendar-day:hover .facility-calendar-tooltip {
+    display: block;
+  }
+  
+  .tooltip-occupancy {
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #555;
+  }
+  
+  .tooltip-item {
+    padding: 2px 0;
+    font-size: 10px;
+  }
+  
+  /* Book a Facility button hover effect */
+  .facility-calendar-day-action span {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  .facility-calendar-day-action span:hover {
+    background: linear-gradient(135deg, #1a252f, #232d38) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="role-dashboard role-dashboard-{{ dashboard_role|default:'requester' }}">
 <div class="cfrms-page-header">
@@ -126,6 +230,14 @@
 
 {# ── Quick-action cards — role-specific ──────────────────────────────────── #}
 {% if user.is_student_role %}
+
+{# Student Appeal Alert #}
+<div class="alert alert-info mb-4" role="status">
+  <i class="bi bi-info-circle me-2"></i>
+  <strong>Reservation Declined?</strong> You can appeal a rejected reservation or request a waiver through our appeal process.
+  <a href="{% url 'reservations:my_reservations' %}" class="alert-link">Review your applications and appeals <i class="bi bi-arrow-right ms-1"></i></a>
+</div>
+
 <section class="cfrms-card upcoming-panel mb-4" aria-labelledby="upcomingHeading">
   <div class="upcoming-panel-heading">
     <div>
@@ -328,11 +440,19 @@
       <span><i class="legend-dot legend-completed"></i>Completed</span>
       <span><i class="legend-dot legend-rejected"></i>Declined</span>
       <span><i class="legend-dot legend-cancelled"></i>Cancelled</span>
+      {% if user.is_student_role %}
+      <span class="ms-auto d-flex align-items-center gap-2" style="font-size:.78rem;">
+        <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#28a745;"></span>Low</span>
+        <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;"></span>Medium</span>
+        <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc3545;"></span>High</span>
+        <span class="text-muted">campus activity</span>
+      </span>
+      {% endif %}
     </div>
 
     <p class="facility-calendar-note">
       {% if user.is_student_role %}
-      Showing your reservations for this month.
+      Showing campus-wide reservations for this month. Color indicates daily activity level — hover a date to see bookings.
       {% elif user.is_reservation_reviewer %}
       Showing student reservations available to your reviewer role. Select an event to view its details.
       {% else %}
@@ -353,16 +473,28 @@
 
         {% for week in dashboard_calendar_weeks %}
           {% for day in week %}
-          <div id="home-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
-            {% if user.is_student_role and day.in_month and not day.is_past and not day.events %}
+          <div id="home-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}{% if user.is_student_role and day.color_code %} occupancy-{{ day.color_code }}{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
+            {% if user.is_student_role and day.in_month and not day.is_past %}
             <a class="facility-calendar-day-action" href="{% url 'reservations:create_reservation' %}?date={{ day.date|date:'Y-m-d' }}" data-calendar-booking-date="{{ day.date|date:'Y-m-d' }}" aria-haspopup="dialog" aria-controls="homeFacilityPicker" aria-label="Choose a facility for {{ day.date|date:'F j, Y' }}">
-              <span>Choose a facility <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+              <span style="background: linear-gradient(135deg, #2c3e50, #34495e); padding: 8px 16px; border-radius: 6px; display: inline-block; color: white; font-weight: 600; transition: all 0.2s ease;">Book a Facility <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
             </a>
             {% endif %}
             <div class="facility-calendar-day-head">
               <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date.day }}</time>
               {% if day.in_month and day.is_past %}<span class="facility-availability is-past">Past date</span>{% endif %}
+              {% if user.is_student_role and day.in_month and day.event_count > 0 %}
+              <span class="calendar-day-occupancy-badge" aria-label="{{ day.event_count }} booking{{ day.event_count|pluralize }} today">{{ day.event_count }}</span>
+              {% endif %}
             </div>
+            {% if user.is_student_role and day.in_month and day.events %}
+            <div class="facility-calendar-tooltip" role="tooltip" aria-label="Reservations for {{ day.date|date:'F j' }}">
+              <div class="tooltip-occupancy">{{ day.event_count }} booking{{ day.event_count|pluralize }} &middot; {{ day.color_code|upper|default:"NONE" }} activity</div>
+              {% for event in day.events|slice:":5" %}
+              <div class="tooltip-item"><strong>{{ event.start_time|time:'H:i' }}&ndash;{{ event.end_time|time:'H:i' }}</strong> {{ event.facility_name|truncatechars:20 }}</div>
+              {% endfor %}
+              {% if day.event_count > 5 %}<div class="tooltip-item text-muted">+{{ day.event_count|add:"-5" }} more</div>{% endif %}
+            </div>
+            {% endif %}
             {% if day.in_month %}
             <div class="facility-calendar-events">
               {% for event in day.events %}
@@ -581,6 +713,62 @@
 </dialog>
 {% endif %}
 
+{# ── Predictive & Prescriptive Analytics — Admin/Staff only ──────────── #}
+{% if demand_forecast_data and user.is_reservation_reviewer %}
+<section class="mb-4" aria-labelledby="homeDemandForecastHeading">
+  <div class="cfrms-card">
+    <div class="card-header-bar d-flex align-items-center justify-content-between gap-2">
+      <span id="homeDemandForecastHeading">
+        <i class="bi bi-graph-up-arrow me-2"></i>Demand Forecast
+        <span class="section-eyebrow ms-2">PREDICTIVE ANALYTICS</span>
+      </span>
+      <span class="badge bg-light text-dark fw-normal">Confidence: {{ demand_forecast_data.confidence|floatformat:0 }}%</span>
+    </div>
+    <div class="p-4">
+      <canvas id="homeDemandForecastChart" height="80"></canvas>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if home_recommendations %}
+<section class="mb-4" aria-labelledby="homeRecommendationsHeading">
+  <div class="cfrms-card">
+    <div class="card-header-bar">
+      <span id="homeRecommendationsHeading">
+        <i class="bi bi-lightbulb me-2"></i>Prescriptive Recommendations
+        <span class="section-eyebrow ms-2">AI INSIGHTS</span>
+      </span>
+    </div>
+    <div class="p-4">
+      <div class="row g-3">
+        {% for rec in home_recommendations|slice:":4" %}
+        <div class="col-12 col-md-6">
+          <div class="cfrms-card p-3 h-100">
+            <div class="d-flex align-items-start gap-3">
+              <span class="dashboard-metric-icon {% if rec.priority == 'high' %}metric-red{% elif rec.priority == 'medium' %}metric-amber{% else %}metric-blue{% endif %} flex-shrink-0" style="width:36px;height:36px;font-size:1rem;">
+                <i class="bi {% if rec.priority == 'high' %}bi-exclamation-triangle-fill{% elif rec.priority == 'medium' %}bi-info-circle-fill{% else %}bi-lightbulb-fill{% endif %}"></i>
+              </span>
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <span class="fw-semibold" style="font-size:.9rem;">{{ rec.title }}</span>
+                  <span class="badge {% if rec.priority == 'high' %}bg-danger{% elif rec.priority == 'medium' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}" style="font-size:.7rem;">{{ rec.priority|upper }}</span>
+                </div>
+                <p class="text-muted mb-1" style="font-size:.82rem;">{{ rec.description }}</p>
+                {% if rec.action %}
+                <small class="text-muted d-block"><i class="bi bi-arrow-right me-1"></i>{{ rec.action }}</small>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 
 {% if not user.is_unassigned_faculty_account and not user.is_faculty_role and not user.is_student_role %}
 {% if not user.is_staff_role and not user.is_admin_role %}
@@ -735,6 +923,7 @@
 {{ chart_statuses|json_script:"dashboard-statuses" }}
 {{ chart_facility_labels|json_script:"dashboard-facility-labels" }}
 {{ chart_facility_values|json_script:"dashboard-facility-values" }}
+{% if demand_forecast_data %}{{ demand_forecast_data|json_script:"demand-forecast-data" }}{% endif %}
 <script>
 function closeChartInfoDialog(dialog) {
   if (!dialog || !dialog.open || dialog.classList.contains('is-closing')) return;
@@ -1023,6 +1212,69 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+});
+</script>
+{% endif %}
+{% if demand_forecast_data and user.is_reservation_reviewer %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var ctx = document.getElementById('homeDemandForecastChart');
+  if (!ctx) return;
+  var historicalData = {{ demand_forecast_data.historical_data|safe }};
+  var forecastData = {{ demand_forecast_data.forecast_data|safe }};
+  var labels = [];
+  historicalData.forEach(function(item) { labels.push(item.month); });
+  forecastData.forEach(function(item) { labels.push(item.month); });
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Historical Demand',
+          data: historicalData.map(function(item) { return item.count; }),
+          borderColor: '#0066cc',
+          backgroundColor: 'rgba(0,102,204,0.07)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: '#0066cc',
+        },
+        {
+          label: 'Forecast',
+          data: Array(historicalData.length).fill(null).concat(forecastData.map(function(item) { return item.forecast; })),
+          borderColor: '#28a745',
+          backgroundColor: 'rgba(40,167,69,0.07)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: '#28a745',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return (ctx.dataset.label || '') + ': ' + (ctx.parsed.y !== null ? Math.round(ctx.parsed.y) + ' reservations' : 'N/A');
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: 'Reservation Count' } },
+        x: { title: { display: true, text: 'Month' } }
+      }
+    }
+  });
 });
 </script>
 {% endif %}

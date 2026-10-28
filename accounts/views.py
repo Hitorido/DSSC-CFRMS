@@ -49,6 +49,7 @@ def home_view(request):
             requested_by__role=User.Role.REQUESTER
         ).exclude(requested_by__user_type=User.UserType.FACULTY)
     elif user.is_student_role:
+        # For summary metrics, count only the student's own reservations
         reservation_qs = Reservation.objects.filter(requested_by=user)
     else:
         reservation_qs = Reservation.objects.none()
@@ -74,10 +75,23 @@ def home_view(request):
     )
     calendar_previous_month = (calendar_month_start - timedelta(days=1)).strftime('%Y-%m')
     calendar_next_month = (calendar_month_end + timedelta(days=1)).strftime('%Y-%m')
+    # For the calendar grid, students see ALL active campus reservations so they can
+    # gauge day availability/occupancy. Their own-reservation metrics use reservation_qs.
+    if user.is_student_role:
+        calendar_qs = Reservation.objects.filter(
+            status__in=[
+                Reservation.Status.PENDING,
+                Reservation.Status.APPROVED,
+                Reservation.Status.COMPLETED,
+            ]
+        ).select_related('facility', 'requested_by')
+    else:
+        calendar_qs = reservation_qs.select_related('facility', 'requested_by')
+
     calendar_events_by_date = {}
-    calendar_reservations = reservation_qs.filter(
+    calendar_reservations = calendar_qs.filter(
         reservation_date__range=(calendar_month_start, calendar_month_end),
-    ).select_related('facility', 'requested_by').order_by('reservation_date', 'start_time')
+    ).order_by('reservation_date', 'start_time')
     for reservation in calendar_reservations:
         can_view_details = (
             user.is_student_role and reservation.requested_by_id == user.pk
@@ -98,7 +112,7 @@ def home_view(request):
             'can_view_details': can_view_details,
             'kind': 'reservation',
         })
-    
+
     # Include SCHEDULED maintenance for admin/staff users
     if user.is_staff_role or user.is_admin_role:
         calendar_maintenance = FacilityMaintenance.objects.filter(
@@ -115,6 +129,22 @@ def home_view(request):
                 'kind': 'maintenance',
             })
 
+    # Compute per-day occupancy colour for the student calendar.
+    # We use a simple ratio: bookings that day / (total active facilities * 2 time-slots).
+    # Thresholds: 0–33% green, 34–66% yellow, 67%+ red.
+    _available_facility_count = max(Facility.objects.filter(status=Facility.Status.AVAILABLE).count(), 1)
+    _DAILY_CAPACITY = _available_facility_count * 2  # rough 2-slot-per-facility baseline
+
+    def _day_color(event_count):
+        if event_count == 0:
+            return ''
+        ratio = min(event_count / _DAILY_CAPACITY, 1.0)
+        if ratio <= 0.33:
+            return 'green'
+        elif ratio <= 0.66:
+            return 'yellow'
+        return 'red'
+
     dashboard_calendar_weeks = []
     for week in calendar.Calendar(firstweekday=6).monthdatescalendar(calendar_year, calendar_month):
         dashboard_calendar_weeks.append([
@@ -128,6 +158,7 @@ def home_view(request):
                     key=lambda event: event['start_time'],
                 ),
                 'event_count': len(calendar_events_by_date.get(day, [])),
+                'color_code': _day_color(len(calendar_events_by_date.get(day, []))),
             }
             for day in week
         ])
@@ -143,6 +174,7 @@ def home_view(request):
         user.is_faculty_role
         or user.is_unassigned_faculty_account
         or user.is_admin_role
+        or user.is_staff_role
     )
 
     context = {
@@ -240,6 +272,18 @@ def home_view(request):
             'chart_has_facility_data': bool(chart_facilities),
             'chart_has_month_data': any(monthly_counts.values()),
         })
+
+    # For admin/staff, add predictive demand forecast and prescriptive recommendations
+    if user.is_admin_role or user.is_staff_role:
+        try:
+            from analytics.services import PredictiveAnalytics, PrescriptiveAnalytics
+            _forecast = PredictiveAnalytics.compute_demand_forecast()
+            context['demand_forecast_data'] = _forecast
+            _recs = PrescriptiveAnalytics.generate_recommendations()
+            context['home_recommendations'] = _recs.get('recommendations', [])
+        except Exception:
+            context['demand_forecast_data'] = None
+            context['home_recommendations'] = []
 
     if user.is_student_role:
         context.update({

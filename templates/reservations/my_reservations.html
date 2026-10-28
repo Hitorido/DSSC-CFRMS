@@ -84,6 +84,14 @@
   </div>
 
   {% if page_obj.object_list %}
+  <!-- Pagination metadata -->
+  <div class="d-flex justify-content-between align-items-center p-3 border-bottom small text-muted">
+    <div>
+      Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> 
+      of <strong>{{ paginator.count }}</strong> record{{ paginator.count|pluralize }}
+    </div>
+  </div>
+
   <div class="table-responsive">
     <table class="table table-hover cfrms-table mb-0">
       <thead>
@@ -136,6 +144,10 @@
               <span class="badge badge-rejected rounded-pill px-3">
                 <i class="bi bi-x-circle me-1"></i>Declined
               </span>
+            {% elif res.status == 'APPEAL' %}
+              <span class="badge badge-warning rounded-pill px-3">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Appeal
+              </span>
             {% else %}
               <span class="badge badge-cancelled rounded-pill px-3">
                 <i class="bi bi-slash-circle me-1"></i>Cancelled
@@ -178,7 +190,68 @@
       </tbody>
     </table>
   </div>
-  {% include "includes/list_pagination.html" with range_select_id="myReservationsPageRange" %}
+
+  <!-- Pagination Controls -->
+  {% if paginator.num_pages > 1 %}
+  <nav aria-label="Pagination navigation" class="d-flex justify-content-between align-items-center p-3 border-top flex-wrap gap-3">
+    <!-- Page range selector (mobile-friendly) -->
+    <div class="d-flex align-items-center gap-2">
+      <label for="myReservationsPageRange" class="form-label mb-0 small">Go to page:</label>
+      <select id="myReservationsPageRange" class="form-select form-select-sm" style="width: auto;"
+              onchange="if (window.CFRMSLoading && window.CFRMSLoading.navigate) { window.CFRMSLoading.navigate(this.value); } else { window.location.href=this.value; }">
+        {% for choice in page_range_choices %}
+        <option value="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ choice.page }}"
+                {% if page_obj.number == choice.page %}selected{% endif %}>
+          {{ choice.label }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Standard pagination controls -->
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page=1" 
+           aria-label="Go to first page">First</a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+           aria-label="Go to previous page">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">First</span>
+      </li>
+      <li class="page-item disabled">
+        <span class="page-link">Previous</span>
+      </li>
+      {% endif %}
+
+      <li class="page-item disabled" aria-current="page">
+        <span class="page-link">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+      </li>
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+           aria-label="Go to next page">Next</a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ paginator.num_pages }}"
+           aria-label="Go to last page">Last</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">Next</span>
+      </li>
+      <li class="page-item disabled">
+        <span class="page-link">Last</span>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 
   {% elif reservation_summary.total == 0 and not filters.search and not filters.status and not filters.date %}
   <div class="p-5 text-center text-muted">

@@ -53,6 +53,11 @@
             <i class="bi bi-x-circle me-1"></i>Declined
           </span>
           <small class="d-block mt-1">Your reservation was declined. Please check the reason below.</small>
+        {% elif reservation.status == 'APPEAL' %}
+          <span class="badge badge-warning rounded-pill px-3">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Appeal
+          </span>
+          <small class="d-block mt-1">This reservation is currently under appeal review. It will be reconsidered by staff.</small>
         {% else %}
           <span class="badge badge-cancelled rounded-pill px-3">
             <i class="bi bi-slash-circle me-1"></i>Cancelled
@@ -307,7 +312,56 @@
         </div>
       </div>
 
-      {% endif %}{# end is_pending #}
+      {% elif reservation.is_appeal %}
+
+      {# Answer Appeal - Approve #}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#1e8449;">
+          <i class="bi bi-check-circle me-2"></i>Approve Appeal
+        </div>
+        <div class="p-4">
+          <p class="text-muted mb-3" style="font-size:.875rem;">
+            Approving this appeal confirms the booking. The student will be notified of the approval.
+          </p>
+          <form method="post"
+                action="{% url 'reservations:approve_reservation' reservation.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-check-circle me-1"></i>Approve Appeal
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {# Decline Appeal #}
+      <div class="cfrms-card">
+        <div class="card-header-bar" style="background:#c0392b;">
+          <i class="bi bi-x-circle me-2"></i>Decline Appeal
+        </div>
+        <div class="p-4">
+          <form method="post"
+                action="{% url 'reservations:reject_reservation' reservation.pk %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="appealReason" class="form-label fw-semibold" style="font-size:.875rem;">
+                Decline Reason <span class="text-danger">*</span>
+              </label>
+              <textarea name="reason"
+                        id="appealReason"
+                        class="form-control"
+                        rows="3"
+                        placeholder="Explain why the appeal is being denied…"
+                        required></textarea>
+              <div class="form-text">Required — the student will see this message.</div>
+            </div>
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-x-circle me-1"></i>Decline Appeal
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {% endif %}{# end is_pending or is_appeal #}
 
       {% if reservation.is_approved and can_complete %}
       <div class="cfrms-card">

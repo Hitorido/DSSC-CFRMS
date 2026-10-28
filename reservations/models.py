@@ -20,6 +20,7 @@ class Reservation(models.Model):
         APPROVED = 'APPROVED', 'Approved'
         COMPLETED = 'COMPLETED', 'Completed'
         REJECTED = 'REJECTED', 'Declined'
+        APPEAL = 'APPEAL', 'Appeal'
         CANCELLED = 'CANCELLED', 'Cancelled'
 
     # The statuses that physically hold/block a time slot on the facility schedule
@@ -191,6 +192,10 @@ class Reservation(models.Model):
     def can_appeal(self):
         return self.is_rejected and self.appeals_remaining > 0
 
+    @property
+    def is_appeal(self):
+        return self.status == self.Status.APPEAL
+
     def clean(self):
         """
         Validate business rules prior to saving.
@@ -357,7 +362,7 @@ class Reservation(models.Model):
             previous_decline_reason = current.rejection_reason
             for field in ('facility_id', 'purpose', 'reservation_date', 'start_time', 'end_time'):
                 setattr(current, field, getattr(self, field))
-            current.status = self.Status.PENDING
+            current.status = self.Status.APPEAL
             current.appeal_count += 1
             current.reviewed_by = None
             current.reviewed_at = None
@@ -375,10 +380,10 @@ class Reservation(models.Model):
 
     def approve(self, reviewer):
         """
-        Approve the pending reservation and record reviewer details.
+        Approve a pending or appeal reservation and record reviewer details.
         """
-        if self.status != self.Status.PENDING:
-            raise ValidationError('Only pending reservations can be approved.')
+        if self.status not in [self.Status.PENDING, self.Status.APPEAL]:
+            raise ValidationError('Only pending or appeal reservations can be approved.')
         self.status = self.Status.APPROVED
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
@@ -386,10 +391,10 @@ class Reservation(models.Model):
 
     def reject(self, reviewer, reason):
         """
-        Reject the pending reservation, record reviewer details and rejection reason.
+        Reject a pending or appeal reservation, record reviewer details and rejection reason.
         """
-        if self.status != self.Status.PENDING:
-            raise ValidationError('Only pending reservations can be rejected.')
+        if self.status not in [self.Status.PENDING, self.Status.APPEAL]:
+            raise ValidationError('Only pending or appeal reservations can be rejected.')
         if not reason or not reason.strip():
             raise ValidationError('A rejection reason is required when rejecting a reservation.')
         self.status = self.Status.REJECTED
