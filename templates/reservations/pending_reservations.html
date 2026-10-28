@@ -39,6 +39,11 @@
       <span class="text-muted small">Declined</span><strong class="d-block fs-4">{{ summary.rejected }}</strong>
     </a>
   </div>
+  <div class="col-6 col-md-3 col-xl">
+    <a class="cfrms-card d-block p-3 text-decoration-none h-100" href="?show_appeals=true{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">
+      <span class="text-muted small"><i class="bi bi-arrow-counterclockwise me-1"></i>Appeals</span><strong class="d-block fs-4">{{ summary.appeal }}</strong>
+    </a>
+  </div>
 </div>
 
 <div class="cfrms-card">

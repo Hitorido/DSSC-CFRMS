@@ -20,6 +20,7 @@ class Reservation(models.Model):
         APPROVED = 'APPROVED', 'Approved'
         COMPLETED = 'COMPLETED', 'Completed'
         REJECTED = 'REJECTED', 'Declined'
+        APPEAL = 'APPEAL', 'Appeal'
         CANCELLED = 'CANCELLED', 'Cancelled'
 
     # The statuses that physically hold/block a time slot on the facility schedule
@@ -357,7 +358,7 @@ class Reservation(models.Model):
             previous_decline_reason = current.rejection_reason
             for field in ('facility_id', 'purpose', 'reservation_date', 'start_time', 'end_time'):
                 setattr(current, field, getattr(self, field))
-            current.status = self.Status.PENDING
+            current.status = self.Status.APPEAL
             current.appeal_count += 1
             current.reviewed_by = None
             current.reviewed_at = None

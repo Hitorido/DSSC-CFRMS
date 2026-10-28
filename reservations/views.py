@@ -137,8 +137,8 @@ def pending_reservations_view(request):
     search = request.GET.get('search', '').strip()
 
     if show_appeals:
-        # Show only REJECTED reservations (appellable requests)
-        reservations = reservations.filter(status=Reservation.Status.REJECTED)
+        # Show only APPEAL status reservations (appellable requests being appealed)
+        reservations = reservations.filter(status=Reservation.Status.APPEAL)
     elif status and status != 'ALL' and status in dict(Reservation.Status.choices):
         reservations = reservations.filter(status=status)
     elif status != 'ALL':
@@ -170,6 +170,7 @@ def pending_reservations_view(request):
         approved=Count('pk', filter=Q(status=Reservation.Status.APPROVED)),
         completed=Count('pk', filter=Q(status=Reservation.Status.COMPLETED)),
         rejected=Count('pk', filter=Q(status=Reservation.Status.REJECTED)),
+        appeal=Count('pk', filter=Q(status=Reservation.Status.APPEAL)),
         cancelled=Count('pk', filter=Q(status=Reservation.Status.CANCELLED)),
     )
 
