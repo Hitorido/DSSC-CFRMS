@@ -540,17 +540,22 @@ def appeal_reservation_view(request, pk):
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
-            # Create notification for staff/admins when appeal submitted
+            # Create notification for all staff/admins when appeal submitted
             from notifications.models import Notification
-            Notification.objects.create(
-                recipient_id=None,  # Broadcast to all staff
-                reservation=reservation,
-                message=(
-                    f'Appeal #{reservation.appeal_count} submitted for Reservation #{reservation.pk} '
-                    f'by {reservation.requested_by.get_full_name() or reservation.requested_by.username}. '
-                    f'Facility: {reservation.facility.name}. Date: {reservation.reservation_date}.'
-                ),
+            staff_users = User.objects.filter(
+                Q(role=User.Role.STAFF) | Q(role=User.Role.ADMIN)
             )
+            appeal_message = (
+                f'Appeal #{reservation.appeal_count} submitted for Reservation #{reservation.pk} '
+                f'by {reservation.requested_by.get_full_name() or reservation.requested_by.username}. '
+                f'Facility: {reservation.facility.name}. Date: {reservation.reservation_date}.'
+            )
+            for staff_user in staff_users:
+                Notification.objects.create(
+                    recipient=staff_user,
+                    reservation=reservation,
+                    message=appeal_message,
+                )
             messages.success(
                 request,
                 f'Appeal {reservation.appeal_count} of {Reservation.MAX_APPEALS} submitted. '
