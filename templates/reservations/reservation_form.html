@@ -3,6 +3,89 @@
 
 {% block title %}{% if is_appeal %}Appeal Reservation #{{ reservation.pk }}{% elif is_edit %}Edit Reservation #{{ reservation.pk }}{% else %}New Reservation{% endif %}{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* Reservation calendar day color coding */
+  .reservation-date-day.day-available-low {
+    background: #d4edda;
+    color: #155724;
+    border-color: #28a745;
+    font-weight: 600;
+  }
+  
+  .reservation-date-day.day-available-medium {
+    background: #fff3cd;
+    color: #856404;
+    border-color: #ffc107;
+    font-weight: 600;
+  }
+  
+  .reservation-date-day.day-available-high {
+    background: #f8d7da;
+    color: #721c24;
+    border-color: #dc3545;
+    font-weight: 600;
+  }
+  
+  /* Calendar booking tooltip */
+  .calendar-booking-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2c3e50;
+    color: white;
+    padding: 10px 12px;
+    border-radius: 6px;
+    z-index: 1000;
+    font-size: 11px;
+    white-space: nowrap;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+    min-width: 180px;
+  }
+  
+  .calendar-booking-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #2c3e50;
+  }
+  
+  .reservation-date-day:hover .calendar-booking-tooltip {
+    display: block;
+  }
+  
+  .tooltip-occupancy {
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #555;
+  }
+  
+  .tooltip-section {
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  
+  .tooltip-section-title {
+    font-weight: 600;
+    color: #aaa;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+  
+  .tooltip-item {
+    padding: 2px 0;
+    font-size: 10px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="cfrms-page-header">
   <h1><i class="bi {% if is_appeal %}bi-arrow-counterclockwise{% elif is_edit %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2" aria-hidden="true"></i>{% if is_appeal %}Appeal Reservation #{{ reservation.pk }}{% elif is_edit %}Edit Reservation #{{ reservation.pk }}{% else %}New Reservation Request{% endif %}</h1>

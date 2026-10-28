@@ -70,6 +70,7 @@
     <a class="btn btn-sm {% if selected_status == 'COMPLETED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=COMPLETED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Completed</a>
     <a class="btn btn-sm {% if selected_status == 'REJECTED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=REJECTED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Declined</a>
     <a class="btn btn-sm {% if selected_status == 'CANCELLED' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=CANCELLED{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">Cancelled</a>
+    <a class="btn btn-sm {% if show_appeals %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?show_appeals=true{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}"><i class="bi bi-arrow-counterclockwise me-1"></i>Appeals</a>
     <a class="btn btn-sm {% if selected_status == 'ALL' %}btn-cfrms-primary{% else %}btn-outline-secondary{% endif %}" href="?status=ALL{% if filters.search %}&amp;search={{ filters.search|urlencode }}{% endif %}">All</a>
   </div>
 

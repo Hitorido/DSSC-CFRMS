@@ -463,9 +463,9 @@
         {% for week in dashboard_calendar_weeks %}
           {% for day in week %}
           <div id="home-calendar-day-{{ day.date|date:'Y-m-d' }}" class="facility-calendar-day{% if not day.in_month %} is-outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past %} is-past{% endif %}{% if user.is_student_role and day.color_code %} occupancy-{{ day.color_code }}{% endif %}" role="gridcell"{% if day.is_past %} aria-disabled="true"{% endif %}>
-            {% if user.is_student_role and day.in_month and not day.is_past and not day.events %}
+            {% if user.is_student_role and day.in_month and not day.is_past %}
             <a class="facility-calendar-day-action" href="{% url 'reservations:create_reservation' %}?date={{ day.date|date:'Y-m-d' }}" data-calendar-booking-date="{{ day.date|date:'Y-m-d' }}" aria-haspopup="dialog" aria-controls="homeFacilityPicker" aria-label="Choose a facility for {{ day.date|date:'F j, Y' }}">
-              <span>Choose a facility <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+              <span>Book a Facility <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
             </a>
             {% endif %}
             <div class="facility-calendar-day-head">
