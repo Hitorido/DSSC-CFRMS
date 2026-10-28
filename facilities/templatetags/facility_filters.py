@@ -24,3 +24,21 @@ def split(value, delimiter):
     if not value:
         return []
     return value.split(delimiter)
+
+
+@register.filter
+def trim(value):
+    """
+    Strip whitespace from both ends of a string.
+    
+    Usage: {{ "  hello  "|trim }}
+    
+    Args:
+        value: String to trim
+        
+    Returns:
+        Trimmed string
+    """
+    if not value:
+        return value
+    return value.strip()
