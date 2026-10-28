@@ -380,10 +380,10 @@ class Reservation(models.Model):
 
     def approve(self, reviewer):
         """
-        Approve the pending reservation and record reviewer details.
+        Approve a pending or appeal reservation and record reviewer details.
         """
-        if self.status != self.Status.PENDING:
-            raise ValidationError('Only pending reservations can be approved.')
+        if self.status not in [self.Status.PENDING, self.Status.APPEAL]:
+            raise ValidationError('Only pending or appeal reservations can be approved.')
         self.status = self.Status.APPROVED
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
@@ -391,10 +391,10 @@ class Reservation(models.Model):
 
     def reject(self, reviewer, reason):
         """
-        Reject the pending reservation, record reviewer details and rejection reason.
+        Reject a pending or appeal reservation, record reviewer details and rejection reason.
         """
-        if self.status != self.Status.PENDING:
-            raise ValidationError('Only pending reservations can be rejected.')
+        if self.status not in [self.Status.PENDING, self.Status.APPEAL]:
+            raise ValidationError('Only pending or appeal reservations can be rejected.')
         if not reason or not reason.strip():
             raise ValidationError('A rejection reason is required when rejecting a reservation.')
         self.status = self.Status.REJECTED
