@@ -192,6 +192,10 @@ class Reservation(models.Model):
     def can_appeal(self):
         return self.is_rejected and self.appeals_remaining > 0
 
+    @property
+    def is_appeal(self):
+        return self.status == self.Status.APPEAL
+
     def clean(self):
         """
         Validate business rules prior to saving.
